@@ -2,12 +2,13 @@
 Supermarket Sales & Customer Analytics Dashboard
 Interactive Dashboard built with Streamlit, Plotly, and Pandas.
 
-Author: Data Analyst Intern
-Dataset: Supermarket Sales Dataset (500 Transactions)
+Author: Yash Kaushik
+Repository: https://github.com/YASHKAUSHIK04/supermarket-sales-analytics
 """
 
 import sys
 from pathlib import Path
+from typing import List, Dict, Any, Optional
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -37,6 +38,13 @@ from src.visualization import (
     PRIMARY_COLOR,
     SECONDARY_COLOR,
     ACCENT_COLOR
+)
+from src.data_loader import (
+    load_uploaded_file,
+    detect_and_map_columns,
+    validate_and_process_uploaded_data,
+    CANONICAL_COLUMNS,
+    CORE_MANDATORY_COLUMNS
 )
 
 # Page configuration
@@ -83,6 +91,21 @@ st.markdown("""
         margin-top: 4px;
     }
 
+    /* Dataset Banner */
+    .dataset-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #eef2ff;
+        border: 1px solid #c7d2fe;
+        color: #3730a3;
+        font-size: 0.85rem;
+        font-weight: 600;
+        padding: 6px 14px;
+        border-radius: 20px;
+        margin-bottom: 16px;
+    }
+
     /* Insight Cards */
     .insight-card {
         background-color: #f8fafc;
@@ -113,6 +136,16 @@ st.markdown("""
         color: #475569;
         line-height: 1.45;
     }
+
+    /* Quality Summary Card */
+    .quality-box {
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-bottom: 14px;
+        font-size: 0.85rem;
+    }
     
     /* Hide top padding */
     .block-container {
@@ -124,106 +157,259 @@ st.markdown("""
 
 
 @st.cache_data
-def get_dataset():
-    """Load and cache cleaned dataset."""
+def get_default_dataset() -> pd.DataFrame:
+    """Load and cache default cleaned dataset."""
     return load_data()
 
 
-# Load full data
-df_full = get_dataset()
+# -------------------------------------------------------------
+# DATASET SELECTION & INGESTION PIPELINE
+# -------------------------------------------------------------
+st.sidebar.markdown("## 📁 **Data Source**")
+data_source_mode = st.sidebar.radio(
+    "Data Source Selection",
+    options=["Default Dataset (500 Rows)", "Upload CSV or Excel"],
+    index=0,
+    label_visibility="collapsed"
+)
+
+df_full: Optional[pd.DataFrame] = None
+active_dataset_name = "Supermarket Sales (Default - 500 Records)"
+upload_summary: Optional[Dict[str, Any]] = None
+current_dataset_token = "default"
+
+if data_source_mode == "Default Dataset (500 Rows)":
+    df_full = get_default_dataset()
+    current_dataset_token = "default_500"
+    active_dataset_name = "Supermarket Sales (Default - 500 Records)"
+else:
+    st.sidebar.markdown("### 📤 **File Upload**")
+    uploaded_file = st.sidebar.file_uploader(
+        "Upload Sales Data (.csv, .xlsx, .xls)",
+        type=["csv", "xlsx", "xls"],
+        help="Upload supermarket transaction records in CSV or Excel format."
+    )
+
+    if uploaded_file is not None:
+        try:
+            df_raw = load_uploaded_file(uploaded_file)
+            current_dataset_token = f"upload_{uploaded_file.name}_{uploaded_file.size}"
+            active_dataset_name = f"{uploaded_file.name} ({len(df_raw):,} records)"
+
+            # Smart column mapping detection
+            raw_cols = list(df_raw.columns)
+            detected_mapping = detect_and_map_columns(raw_cols)
+
+            # Manual column mapping interface in expander
+            with st.sidebar.expander("🛠️ Column Mapping Settings", expanded=False):
+                st.caption("Review or adjust detected column mappings:")
+                custom_mapping: Dict[str, Optional[str]] = {}
+                col_options = ["(None)"] + raw_cols
+
+                for canon in CANONICAL_COLUMNS:
+                    initial_match = detected_mapping.get(canon)
+                    default_idx = col_options.index(initial_match) if initial_match in col_options else 0
+                    selected_col = st.selectbox(
+                        f"**{canon}** {'*(Required)*' if canon in CORE_MANDATORY_COLUMNS else ''}",
+                        options=col_options,
+                        index=default_idx,
+                        key=f"map_{canon}"
+                    )
+                    custom_mapping[canon] = None if selected_col == "(None)" else selected_col
+
+            # Validate and clean uploaded data
+            df_processed, upload_summary = validate_and_process_uploaded_data(
+                df_raw, column_mapping=custom_mapping
+            )
+
+            if not upload_summary["is_valid"]:
+                st.sidebar.error("❌ Dataset validation failed.")
+                for err in upload_summary["errors"]:
+                    st.sidebar.error(f"• {err}")
+                st.error("### ⚠️ Dataset Ingestion Failed")
+                st.write("The uploaded file could not be processed due to the following schema issues:")
+                for err in upload_summary["errors"]:
+                    st.markdown(f"- **{err}**")
+                st.write("#### Raw File Preview:")
+                st.dataframe(df_raw.head(10), use_container_width=True)
+                st.stop()
+            else:
+                df_full = df_processed
+                st.sidebar.success(f"✅ Ingested {len(df_full):,} records successfully!")
+
+                # Quality audit notice in sidebar
+                if upload_summary["math_discrepancy_count"] > 0 or upload_summary["warnings"]:
+                    with st.sidebar.expander(f"⚠️ Ingestion Audit ({len(upload_summary['warnings'])})", expanded=False):
+                        for warn in upload_summary["warnings"]:
+                            st.caption(f"• {warn}")
+
+        except Exception as ex:
+            st.sidebar.error(f"Error parsing file: {ex}")
+            st.error(f"### ⚠️ File Read Error\n{ex}")
+            st.stop()
+    else:
+        # Prompt user to upload file
+        st.title("🛒 Supermarket Sales & Customer Analytics")
+        st.info("👋 **Welcome!** Please upload a CSV or Excel (`.xlsx`, `.xls`) file in the sidebar to begin analysis, or switch back to **'Default Dataset (500 Rows)'**.")
+        
+        st.markdown("### 📋 Expected Data Format")
+        st.markdown("""
+        Your dataset should ideally contain the following transaction fields (standard aliases are recognized automatically):
+        - **Invoice ID** (`Invoice ID`, `Order ID`, `Bill No`)
+        - **Date** (`Date`, `Invoice Date`, `Txn Date`)
+        - **Branch** (`Branch`, `Store`, `Outlet`)
+        - **City** (`City`, `Location`, `Market`)
+        - **Customer Type** (`Customer Type`, `Membership`, `Type`)
+        - **Gender** (`Gender`, `Sex`)
+        - **Product** (`Product`, `Item`, `SKU`)
+        - **Category** (`Category`, `Department`, `Dept`)
+        - **Quantity** (`Quantity`, `Qty`, `Units`)
+        - **Unit Price** (`Unit Price`, `Price`, `Rate`)
+        - **Payment** (`Payment`, `Payment Method`, `Mode`)
+        - **Rating** (`Rating`, `Satisfaction`, `Score`)
+        - **Sales** (`Sales`, `Total`, `Amount`) *(Optional: automatically computed as $Quantity \\times Unit Price$ if omitted)*
+        """)
+        st.stop()
+
+# -------------------------------------------------------------
+# DYNAMIC FILTER STATE SYNCHRONIZATION
+# -------------------------------------------------------------
+# Check if active dataset changed; if so, clear filter session state to prevent stale collisions
+if st.session_state.get("active_dataset_token") != current_dataset_token:
+    filter_keys_to_reset = [
+        "filter_cities", "filter_branches", "filter_categories",
+        "filter_products", "filter_customer_types", "filter_genders",
+        "filter_payments", "filter_date_range"
+    ]
+    for k in filter_keys_to_reset:
+        st.session_state.pop(k, None)
+    st.session_state["active_dataset_token"] = current_dataset_token
+
+
+def get_sanitized_selection(session_key: str, available_options: List[str]) -> List[str]:
+    """Retrieve or initialize filter selection safely."""
+    if session_key in st.session_state:
+        current_val = st.session_state[session_key]
+        if isinstance(current_val, list):
+            valid = [item for item in current_val if item in available_options]
+            if valid:
+                st.session_state[session_key] = valid
+                return valid
+    st.session_state[session_key] = available_options
+    return available_options
+
 
 # -------------------------------------------------------------
 # SIDEBAR FILTERS
 # -------------------------------------------------------------
+st.sidebar.markdown("---")
 st.sidebar.markdown("## 🔍 **Analytics Filters**")
 
 # Reset filters button
 if st.sidebar.button("🔄 Reset All Filters", use_container_width=True):
-    st.session_state["filter_cities"] = []
-    st.session_state["filter_branches"] = []
-    st.session_state["filter_categories"] = []
-    st.session_state["filter_products"] = []
-    st.session_state["filter_customer_types"] = []
-    st.session_state["filter_genders"] = []
-    st.session_state["filter_payments"] = []
-    st.session_state["filter_date_range"] = (df_full["Date"].min().date(), df_full["Date"].max().date())
+    st.session_state["filter_cities"] = sorted(df_full["City"].dropna().unique())
+    st.session_state["filter_branches"] = sorted(df_full["Branch"].dropna().unique())
+    st.session_state["filter_categories"] = sorted(df_full["Category"].dropna().unique())
+    st.session_state["filter_products"] = sorted(df_full["Product"].dropna().unique())
+    st.session_state["filter_customer_types"] = sorted(df_full["Customer Type"].dropna().unique())
+    st.session_state["filter_genders"] = sorted(df_full["Gender"].dropna().unique())
+    st.session_state["filter_payments"] = sorted(df_full["Payment"].dropna().unique())
+    min_d = df_full["Date"].min().date()
+    max_d = df_full["Date"].max().date()
+    st.session_state["filter_date_range"] = (min_d, max_d)
     st.rerun()
 
 # 1. Date Range Filter
 min_date = df_full["Date"].min().date()
 max_date = df_full["Date"].max().date()
-date_range = st.sidebar.date_input(
-    "Date Range",
-    value=(min_date, max_date),
-    min_value=min_date,
-    max_value=max_date,
-    key="filter_date_range"
-)
+
+if min_date == max_date:
+    date_range = (min_date, max_date)
+    st.sidebar.caption(f"📅 Date: {min_date}")
+else:
+    current_date_val = st.session_state.get("filter_date_range", (min_date, max_date))
+    if not (isinstance(current_date_val, tuple) and len(current_date_val) == 2):
+        current_date_val = (min_date, max_date)
+
+    date_range = st.sidebar.date_input(
+        "Date Range",
+        value=current_date_val,
+        min_value=min_date,
+        max_value=max_date,
+        key="filter_date_range"
+    )
 
 # 2. City Filter
-all_cities = sorted(df_full["City"].unique())
+all_cities = sorted(df_full["City"].dropna().unique())
+default_cities = get_sanitized_selection("filter_cities", all_cities)
 selected_cities = st.sidebar.multiselect(
     "City",
     options=all_cities,
-    default=all_cities,
+    default=default_cities,
     key="filter_cities"
 )
 
 # 3. Branch Filter
-all_branches = sorted(df_full["Branch"].unique())
+all_branches = sorted(df_full["Branch"].dropna().unique())
+default_branches = get_sanitized_selection("filter_branches", all_branches)
 selected_branches = st.sidebar.multiselect(
     "Branch",
     options=all_branches,
-    default=all_branches,
+    default=default_branches,
     key="filter_branches"
 )
 
 # 4. Product Category Filter
-all_categories = sorted(df_full["Category"].unique())
+all_categories = sorted(df_full["Category"].dropna().unique())
+default_categories = get_sanitized_selection("filter_categories", all_categories)
 selected_categories = st.sidebar.multiselect(
     "Product Category",
     options=all_categories,
-    default=all_categories,
+    default=default_categories,
     key="filter_categories"
 )
 
-# 5. Product Filter (dynamically cascaded based on category)
+# 5. Product Filter (dynamically cascaded based on selected category)
 if selected_categories:
-    available_products = sorted(df_full[df_full["Category"].isin(selected_categories)]["Product"].unique())
+    available_products = sorted(df_full[df_full["Category"].isin(selected_categories)]["Product"].dropna().unique())
 else:
-    available_products = sorted(df_full["Product"].unique())
+    available_products = sorted(df_full["Product"].dropna().unique())
 
+default_products = get_sanitized_selection("filter_products", available_products)
 selected_products = st.sidebar.multiselect(
     "Product",
     options=available_products,
-    default=available_products,
+    default=default_products,
     key="filter_products"
 )
 
 # 6. Customer Type Filter
-all_customer_types = sorted(df_full["Customer Type"].unique())
+all_customer_types = sorted(df_full["Customer Type"].dropna().unique())
+default_types = get_sanitized_selection("filter_customer_types", all_customer_types)
 selected_customer_types = st.sidebar.multiselect(
     "Customer Type",
     options=all_customer_types,
-    default=all_customer_types,
+    default=default_types,
     key="filter_customer_types"
 )
 
 # 7. Gender Filter
-all_genders = sorted(df_full["Gender"].unique())
+all_genders = sorted(df_full["Gender"].dropna().unique())
+default_genders = get_sanitized_selection("filter_genders", all_genders)
 selected_genders = st.sidebar.multiselect(
     "Gender",
     options=all_genders,
-    default=all_genders,
+    default=default_genders,
     key="filter_genders"
 )
 
 # 8. Payment Method Filter
-all_payments = sorted(df_full["Payment"].unique())
+all_payments = sorted(df_full["Payment"].dropna().unique())
+default_payments = get_sanitized_selection("filter_payments", all_payments)
 selected_payments = st.sidebar.multiselect(
     "Payment Method",
     options=all_payments,
-    default=all_payments,
+    default=default_payments,
     key="filter_payments"
 )
 
@@ -281,10 +467,40 @@ else:
 # HEADER & EXECUTIVE SUMMARY
 # -------------------------------------------------------------
 st.title("🛒 Supermarket Sales & Customer Analytics")
+
+# Active dataset indicator badge
+st.markdown(
+    f"""<div class="dataset-badge">
+        <span>📊 <b>Active Dataset:</b> {active_dataset_name}</span>
+        <span>•</span>
+        <span><b>{len(df_filtered):,}</b> of <b>{len(df_full):,}</b> records analyzed</span>
+    </div>""",
+    unsafe_allow_html=True
+)
+
 st.caption(
     "A portfolio-ready data analytics dashboard examining supermarket revenue, customer segmentation, "
     "product dynamics, and payment behaviors across retail branches."
 )
+
+# Optional Data Quality audit expander for uploaded data
+if upload_summary:
+    with st.expander("📋 Data Ingestion & Quality Audit Report", expanded=False):
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Total Records Ingested", f"{upload_summary['final_rows']:,}")
+        c2.metric("Date Span", f"{upload_summary['date_range'][0]} to {upload_summary['date_range'][1]}")
+        c3.metric("Math Discrepancy Rows", f"{upload_summary['math_discrepancy_count']:,}")
+        c4.metric("Duplicate Invoices", f"{upload_summary['duplicate_invoices']:,}")
+
+        if upload_summary["defaults_applied"]:
+            st.markdown("**Applied Defaults / Imputations:**")
+            for d in upload_summary["defaults_applied"]:
+                st.markdown(f"- {d}")
+
+        if upload_summary["warnings"]:
+            st.markdown("**Quality Notices:**")
+            for w in upload_summary["warnings"]:
+                st.markdown(f"- {w}")
 
 # -------------------------------------------------------------
 # EMPTY FILTER GUARD
@@ -430,7 +646,7 @@ with tabs[1]:
             x_col="Total_Sales",
             y_col="Product",
             orientation="h",
-            title="Top 10 Products by Revenue (Rs.)",
+            title="Top 10 Products by Revenue (₹)",
             color_col="Category"
         )
         st.plotly_chart(fig_rev, use_container_width=True)
@@ -458,14 +674,14 @@ with tabs[1]:
     st.markdown("#### Category Summary Breakdown")
     st.dataframe(
         prod_perf["category_summary"].rename(columns={
-            "Total_Sales": "Total Sales (Rs.)",
+            "Total_Sales": "Total Sales (₹)",
             "Total_Quantity": "Total Units",
-            "Avg_Unit_Price": "Avg Unit Price (Rs.)",
+            "Avg_Unit_Price": "Avg Unit Price (₹)",
             "Avg_Rating": "Avg Rating"
         }).style.format({
-            "Total Sales (Rs.)": "₹{:,.2f}",
+            "Total Sales (₹)": "₹{:,.2f}",
             "Total Units": "{:,}",
-            "Avg Unit Price (Rs.)": "₹{:.2f}",
+            "Avg Unit Price (₹)": "₹{:.2f}",
             "Avg Rating": "{:.2f}"
         }),
         use_container_width=True,
@@ -486,7 +702,7 @@ with tabs[2]:
             cust_data["by_type"],
             x_col="Customer Type",
             y_col="Sales",
-            title="Total Sales: Member vs Normal",
+            title="Total Sales: Customer Type",
             color_col="Customer Type"
         )
         st.plotly_chart(fig_cust_type, use_container_width=True)
@@ -584,7 +800,7 @@ with tabs[4]:
         fig_cat_rating.update_layout(
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(248,249,250,0.8)",
-            xaxis=dict(range=[3.0, 5.0], title="Mean Rating (1-5)")
+            xaxis=dict(range=[1.0, 5.0], title="Mean Rating (1-5)")
         )
         st.plotly_chart(fig_cat_rating, use_container_width=True)
 
@@ -601,7 +817,7 @@ with tabs[4]:
         fig_city_rating.update_layout(
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(248,249,250,0.8)",
-            yaxis=dict(range=[3.0, 5.0], title="Mean Rating")
+            yaxis=dict(range=[1.0, 5.0], title="Mean Rating")
         )
         st.plotly_chart(fig_city_rating, use_container_width=True)
 
@@ -611,12 +827,12 @@ with tabs[4]:
             x="Customer Type",
             y="Mean_Rating",
             color="Customer Type",
-            title="<b>Average Rating: Member vs Normal</b>"
+            title="<b>Average Rating by Customer Type</b>"
         )
         fig_type_rating.update_layout(
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(248,249,250,0.8)",
-            yaxis=dict(range=[3.0, 5.0], title="Mean Rating")
+            yaxis=dict(range=[1.0, 5.0], title="Mean Rating")
         )
         st.plotly_chart(fig_type_rating, use_container_width=True)
 
@@ -643,12 +859,12 @@ with tabs[5]:
     st.markdown("### Strategic Recommendations for Store Operations")
     st.markdown("""
     1. **Inventory Alignment with Revenue vs Volume**:
-       - High-value categories (Dairy, Personal Care) deliver superior revenue per square foot and require stringent stock availability.
-       - High-volume staple categories (Snacks, Vegetables) should be positioned strategically for basket-building and foot-traffic conversion.
+       - High-value categories deliver superior revenue per square foot and require stringent stock availability.
+       - High-volume staple categories should be positioned strategically for basket-building and foot-traffic conversion.
     2. **Loyalty Program Enhancements**:
-       - Evaluate Member Average Transaction Value relative to Normal shoppers to optimize membership perks, targeted digital discounts, and member-exclusive bundle offers.
+       - Continuously evaluate Member Average Transaction Value relative to Normal shoppers to optimize membership perks, targeted digital discounts, and member-exclusive bundle offers.
     3. **Payment Terminal Optimization**:
-       - Ensure robust uptime and zero-latency connectivity for top digital payment channels (UPI and Net Banking), which represent the largest transaction shares.
+       - Ensure robust uptime and zero-latency connectivity for top digital payment channels, which represent the largest transaction shares.
     4. **Quality & Satisfaction Assurance**:
        - Focus quality assurance audits on categories showing lower average rating variance to maintain brand trust and consistent customer retention.
     """)
@@ -659,7 +875,7 @@ with tabs[5]:
 # -------------------------------------------------------------
 with tabs[6]:
     st.subheader("Filtered Dataset Explorer")
-    st.caption(f"Showing {len(df_filtered)} filtered records out of {len(df_full)} total transactions.")
+    st.caption(f"Showing {len(df_filtered):,} filtered records out of {len(df_full):,} total transactions.")
 
     # CSV Download
     csv_data = df_filtered.to_csv(index=False).encode("utf-8")
@@ -671,27 +887,27 @@ with tabs[6]:
         use_container_width=False
     )
 
+    export_cols = [c for c in CANONICAL_COLUMNS if c in df_filtered.columns]
     st.dataframe(
-        df_filtered[[
-            "Invoice ID", "Date", "City", "Branch", "Customer Type", "Gender",
-            "Product", "Category", "Quantity", "Unit Price", "Payment", "Rating", "Sales"
-        ]],
+        df_filtered[export_cols],
         use_container_width=True,
         hide_index=True
     )
 
     st.markdown("---")
     st.markdown("#### Summary Statistics (Numerical Columns)")
-    st.dataframe(
-        df_filtered[["Quantity", "Unit Price", "Rating", "Sales"]].describe().T.style.format({
-            "count": "{:,.0f}",
-            "mean": "{:,.2f}",
-            "std": "{:,.2f}",
-            "min": "{:,.2f}",
-            "25%": "{:,.2f}",
-            "50%": "{:,.2f}",
-            "75%": "{:,.2f}",
-            "max": "{:,.2f}"
-        }),
-        use_container_width=True
-    )
+    numeric_cols = [c for c in ["Quantity", "Unit Price", "Rating", "Sales"] if c in df_filtered.columns]
+    if numeric_cols:
+        st.dataframe(
+            df_filtered[numeric_cols].describe().T.style.format({
+                "count": "{:,.0f}",
+                "mean": "{:,.2f}",
+                "std": "{:,.2f}",
+                "min": "{:,.2f}",
+                "25%": "{:,.2f}",
+                "50%": "{:,.2f}",
+                "75%": "{:,.2f}",
+                "max": "{:,.2f}"
+            }),
+            use_container_width=True
+        )

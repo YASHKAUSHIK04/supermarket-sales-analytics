@@ -80,12 +80,18 @@ def analyze_sales_over_time(df: pd.DataFrame, freq: str = "M") -> pd.DataFrame:
         return grouped
     elif freq == "Day_Of_Week":
         days_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-        grouped = df.groupby("Day_Of_Week").agg(
+        grouped = df.groupby("Day_Of_Week", observed=True).agg(
             Sales=("Sales", "sum"),
             Quantity=("Quantity", "sum"),
             Transactions=("Invoice ID", "count"),
             Avg_Order_Value=("Sales", "mean")
         ).reindex(days_order).reset_index()
+        grouped = grouped.fillna({
+            "Sales": 0.0,
+            "Quantity": 0,
+            "Transactions": 0,
+            "Avg_Order_Value": 0.0
+        })
         return grouped
     else:
         raise ValueError(f"Unsupported frequency: {freq}")
@@ -245,69 +251,108 @@ def generate_key_insights(df: pd.DataFrame) -> List[Dict[str, str]]:
 
     # 1. Category Leader
     cat_sales = df.groupby("Category", observed=True)["Sales"].sum()
-    top_cat = cat_sales.idxmax()
-    top_cat_sales = cat_sales.max()
-    top_cat_share = (top_cat_sales / df["Sales"].sum()) * 100
-    insights.append({
-        "category": "Revenue Driver",
-        "title": f"Leading Category: {top_cat}",
-        "insight": f"{top_cat} generated Rs. {top_cat_sales:,.2f} ({top_cat_share:.1f}% of total revenue), making it the single largest category by gross sales."
-    })
+    if not cat_sales.empty:
+        top_cat = cat_sales.idxmax()
+        top_cat_sales = cat_sales.max()
+        top_cat_share = (top_cat_sales / df["Sales"].sum()) * 100 if df["Sales"].sum() > 0 else 0
+        insights.append({
+            "category": "Revenue Driver",
+            "title": f"Leading Category: {top_cat}",
+            "insight": f"{top_cat} generated ₹{top_cat_sales:,.2f} ({top_cat_share:.1f}% of total revenue), making it the single largest category by gross sales."
+        })
 
     # 2. Product Volume vs Value
     prod_rev = df.groupby("Product", observed=True)["Sales"].sum()
     prod_vol = df.groupby("Product", observed=True)["Quantity"].sum()
-    top_rev_prod = prod_rev.idxmax()
-    top_vol_prod = prod_vol.idxmax()
-    insights.append({
-        "category": "Product Dynamics",
-        "title": "Revenue vs Volume Divergence",
-        "insight": f"Top revenue product is '{top_rev_prod}' (Rs. {prod_rev[top_rev_prod]:,.2f}), whereas top quantity volume product is '{top_vol_prod}' ({prod_vol[top_vol_prod]} units sold). High unit prices drive revenue independently of unit sales volume."
-    })
+    if not prod_rev.empty and not prod_vol.empty:
+        top_rev_prod = prod_rev.idxmax()
+        top_vol_prod = prod_vol.idxmax()
+        insights.append({
+            "category": "Product Dynamics",
+            "title": "Revenue vs Volume Divergence",
+            "insight": f"Top revenue product is '{top_rev_prod}' (₹{prod_rev[top_rev_prod]:,.2f}), whereas top quantity volume product is '{top_vol_prod}' ({prod_vol[top_vol_prod]:,} units sold). High unit prices drive revenue independently of unit sales volume."
+        })
 
     # 3. Customer Type Comparison
     cust_sales = df.groupby("Customer Type", observed=True)["Sales"].agg(["sum", "mean", "count"])
     if len(cust_sales) > 1:
-        member_atv = cust_sales.loc["Member", "mean"]
-        normal_atv = cust_sales.loc["Normal", "mean"]
-        member_sales = cust_sales.loc["Member", "sum"]
-        normal_sales = cust_sales.loc["Normal", "sum"]
-        diff_atv = member_atv - normal_atv
+        if "Member" in cust_sales.index and "Normal" in cust_sales.index:
+            member_atv = cust_sales.loc["Member", "mean"]
+            normal_atv = cust_sales.loc["Normal", "mean"]
+            member_sales = cust_sales.loc["Member", "sum"]
+            normal_sales = cust_sales.loc["Normal", "sum"]
+            diff_atv = member_atv - normal_atv
+            insights.append({
+                "category": "Customer Segments",
+                "title": "Member vs Normal Spending Behavior",
+                "insight": f"Members generated ₹{member_sales:,.2f} across {cust_sales.loc['Member', 'count']} transactions (ATV: ₹{member_atv:.2f}), while Normal customers generated ₹{normal_sales:,.2f} across {cust_sales.loc['Normal', 'count']} transactions (ATV: ₹{normal_atv:.2f}). ATV difference is ₹{abs(diff_atv):.2f}."
+            })
+        else:
+            types = cust_sales.index.tolist()
+            t1, t2 = types[0], types[1]
+            s1, s2 = cust_sales.loc[t1, "sum"], cust_sales.loc[t2, "sum"]
+            atv1, atv2 = cust_sales.loc[t1, "mean"], cust_sales.loc[t2, "mean"]
+            insights.append({
+                "category": "Customer Segments",
+                "title": f"Segment Comparison: {t1} vs {t2}",
+                "insight": f"'{t1}' generated ₹{s1:,.2f} (ATV: ₹{atv1:.2f}) across {cust_sales.loc[t1, 'count']} transactions, compared to '{t2}' generating ₹{s2:,.2f} (ATV: ₹{atv2:.2f}) across {cust_sales.loc[t2, 'count']} transactions."
+            })
+    elif len(cust_sales) == 1:
+        single_type = cust_sales.index[0]
         insights.append({
             "category": "Customer Segments",
-            "title": "Member vs Normal Spending Behavior",
-            "insight": f"Members generated Rs. {member_sales:,.2f} across {cust_sales.loc['Member', 'count']} transactions (ATV: Rs. {member_atv:.2f}), while Normal customers generated Rs. {normal_sales:,.2f} across {cust_sales.loc['Normal', 'count']} transactions (ATV: Rs. {normal_atv:.2f}). ATV difference is Rs. {abs(diff_atv):.2f}."
+            "title": f"Customer Segment Profile: {single_type}",
+            "insight": f"All transactions belong to '{single_type}', generating total revenue of ₹{cust_sales.loc[single_type, 'sum']:,.2f} with an Average Transaction Value of ₹{cust_sales.loc[single_type, 'mean']:,.2f}."
         })
 
     # 4. City & Branch Sales
     city_sales = df.groupby("City", observed=True)["Sales"].sum()
-    top_city = city_sales.idxmax()
-    lowest_city = city_sales.idxmin()
-    insights.append({
-        "category": "Geographic Performance",
-        "title": f"City Performance Spread",
-        "insight": f"{top_city} is the highest revenue market with Rs. {city_sales[top_city]:,.2f} ({city_sales[top_city]/df['Sales'].sum()*100:.1f}%), compared to {lowest_city} at Rs. {city_sales[lowest_city]:,.2f} ({city_sales[lowest_city]/df['Sales'].sum()*100:.1f}%)."
-    })
+    if len(city_sales) > 1:
+        top_city = city_sales.idxmax()
+        lowest_city = city_sales.idxmin()
+        tot = df["Sales"].sum() if df["Sales"].sum() > 0 else 1
+        insights.append({
+            "category": "Geographic Performance",
+            "title": "City Performance Spread",
+            "insight": f"{top_city} is the highest revenue market with ₹{city_sales[top_city]:,.2f} ({city_sales[top_city]/tot*100:.1f}%), compared to {lowest_city} at ₹{city_sales[lowest_city]:,.2f} ({city_sales[lowest_city]/tot*100:.1f}%)."
+        })
+    elif len(city_sales) == 1:
+        single_city = city_sales.index[0]
+        insights.append({
+            "category": "Geographic Performance",
+            "title": f"Geographic Concentration: {single_city}",
+            "insight": f"All transactions originate from {single_city}, contributing 100% (₹{city_sales[single_city]:,.2f}) of total recorded revenue."
+        })
 
     # 5. Payment Channel Preferences
     pay_sales = df.groupby("Payment", observed=True)["Sales"].sum()
     pay_txns = df.groupby("Payment", observed=True)["Invoice ID"].count()
-    top_pay_method = pay_sales.idxmax()
-    top_pay_txns = pay_txns.idxmax()
-    insights.append({
-        "category": "Payment Analysis",
-        "title": f"Payment Dominance: {top_pay_method}",
-        "insight": f"{top_pay_method} accounted for the highest sales volume at Rs. {pay_sales[top_pay_method]:,.2f} ({pay_sales[top_pay_method]/df['Sales'].sum()*100:.1f}% share) and {pay_txns[top_pay_method]} transactions."
-    })
+    if not pay_sales.empty:
+        top_pay_method = pay_sales.idxmax()
+        top_pay_txns = pay_txns.idxmax()
+        tot = df["Sales"].sum() if df["Sales"].sum() > 0 else 1
+        insights.append({
+            "category": "Payment Analysis",
+            "title": f"Payment Dominance: {top_pay_method}",
+            "insight": f"{top_pay_method} accounted for the highest sales volume at ₹{pay_sales[top_pay_method]:,.2f} ({pay_sales[top_pay_method]/tot*100:.1f}% share) and {pay_txns[top_pay_method]} transactions."
+        })
 
     # 6. Customer Satisfaction
     cat_ratings = df.groupby("Category", observed=True)["Rating"].mean()
-    top_rated_cat = cat_ratings.idxmax()
-    lowest_rated_cat = cat_ratings.idxmin()
-    insights.append({
-        "category": "Customer Satisfaction",
-        "title": "Rating Spread Across Categories",
-        "insight": f"Average customer rating is {df['Rating'].mean():.2f}/5.0. '{top_rated_cat}' achieved the highest average rating ({cat_ratings[top_rated_cat]:.2f}), while '{lowest_rated_cat}' recorded the lowest ({cat_ratings[lowest_rated_cat]:.2f})."
-    })
+    if len(cat_ratings) > 1:
+        top_rated_cat = cat_ratings.idxmax()
+        lowest_rated_cat = cat_ratings.idxmin()
+        insights.append({
+            "category": "Customer Satisfaction",
+            "title": "Rating Spread Across Categories",
+            "insight": f"Average customer rating is {df['Rating'].mean():.2f}/5.0. '{top_rated_cat}' achieved the highest average rating ({cat_ratings[top_rated_cat]:.2f}), while '{lowest_rated_cat}' recorded the lowest ({cat_ratings[lowest_rated_cat]:.2f})."
+        })
+    elif len(cat_ratings) == 1:
+        single_cat = cat_ratings.index[0]
+        insights.append({
+            "category": "Customer Satisfaction",
+            "title": f"Category Satisfaction: {single_cat}",
+            "insight": f"Average customer rating for '{single_cat}' is {cat_ratings[single_cat]:.2f}/5.0 based on {len(df)} transactions."
+        })
 
     return insights
