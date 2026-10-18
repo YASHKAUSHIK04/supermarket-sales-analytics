@@ -235,6 +235,37 @@ class TestInventoryIntelligence(unittest.TestCase):
         self.assertGreater(populated_kpis["total_products"], 0)
         self.assertGreater(populated_kpis["total_stock_value"], 0.0)
 
+    def test_calculate_inventory_intelligence_positional_sales(self):
+        """Regression test: calling with sales DataFrame positionally as first arg auto-disambiguates."""
+        intel_df = calculate_inventory_intelligence(self.mock_sales, db_path=self.db_path)
+        self.assertIsInstance(intel_df, pd.DataFrame)
+        self.assertGreater(len(intel_df), 0)
+        milk_row = intel_df[intel_df["Product Name"] == "Milk"].iloc[0]
+        self.assertEqual(milk_row["Units_Sold"], 50)
+
+    def test_calculate_inventory_intelligence_kwargs_alias(self):
+        """Regression test: calling with df_filtered or arbitrary kwargs works seamlessly."""
+        intel_df = calculate_inventory_intelligence(
+            df_filtered=self.mock_sales,
+            unexpected_arg="ignored_safely",
+            lookback_days="45",
+            db_path=self.db_path
+        )
+        self.assertIsInstance(intel_df, pd.DataFrame)
+        self.assertGreater(len(intel_df), 0)
+
+    def test_calculate_inventory_intelligence_dirty_data_types(self):
+        """Regression test: non-numeric Quantity and string Sales are safely coerced."""
+        dirty_sales = pd.DataFrame({
+            "Product": ["Milk", "Bread", "Eggs"],
+            "Quantity": ["10", "invalid", None],
+            "Date": ["2026-06-01", "not_a_date", "2026-06-02"],
+            "Sales": ["500.0", "NaN", "150.0"]
+        })
+        intel_df = calculate_inventory_intelligence(sales_df=dirty_sales, db_path=self.db_path)
+        self.assertIsInstance(intel_df, pd.DataFrame)
+        self.assertGreater(len(intel_df), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -101,6 +101,16 @@ class TestBusinessInsightsEngine(unittest.TestCase):
         self.assertIn("Coffee", inv_insights[0]["observation"])
         self.assertIn("Milk", inv_insights[0]["observation"])
 
+    def test_inventory_keyword_aliases_integration(self):
+        """Verify calling with inventory_intelligence_df keyword argument works identically."""
+        insights_kw = generate_structured_business_insights(
+            self.sample_sales,
+            inventory_intelligence_df=self.sample_inventory
+        )
+        inv_insights = [i for i in insights_kw if i["category"] == "Inventory Management"]
+        self.assertEqual(len(inv_insights), 1)
+        self.assertEqual(inv_insights[0]["severity"], "CRITICAL")
+
 
 if __name__ == "__main__":
     unittest.main()

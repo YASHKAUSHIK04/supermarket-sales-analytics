@@ -60,6 +60,7 @@ def calculate_inventory_intelligence(
     sales_df: Optional[pd.DataFrame] = None,
     lookback_days: int = 30,
     db_path: Optional[Union[str, Path]] = None,
+    **kwargs: Any,
 ) -> pd.DataFrame:
     """Calculate comprehensive inventory intelligence metrics for catalog products.
 
@@ -69,15 +70,53 @@ def calculate_inventory_intelligence(
         sales_df: Optional DataFrame of sales transactions. If None, loaded from SQLite.
         lookback_days: Number of days in observation window for velocity calculation.
         db_path: Optional custom path to SQLite database (for isolated testing).
+        **kwargs: Absorbs alternative parameter aliases (e.g., df_filtered, sales, catalog).
 
     Returns:
         Enriched DataFrame with velocity, days remaining, stock health, and reorder metrics.
         Returns an empty DataFrame with canonical columns if inventory records are unavailable.
     """
+    # 0. Resolve kwargs aliases if parameters were not supplied explicitly
+    if sales_df is None:
+        for alias in ("sales", "df", "df_filtered", "sales_data", "transactions_df", "transactions"):
+            val = kwargs.get(alias)
+            if isinstance(val, pd.DataFrame):
+                sales_df = val
+                break
+
+    if products_df is None:
+        for alias in ("products", "catalog", "catalog_df", "inventory_df", "products_catalog"):
+            val = kwargs.get(alias)
+            if isinstance(val, pd.DataFrame):
+                products_df = val
+                break
+
+    # Handle positional argument disambiguation:
+    # If caller called calculate_inventory_intelligence(df_filtered) positionally,
+    # products_df holds the sales dataframe, while sales_df is None.
+    if products_df is not None and sales_df is None:
+        is_sales_like = "Date" in products_df.columns and "Quantity" in products_df.columns
+        is_catalog_like = "Current Stock" in products_df.columns or "current_stock" in products_df.columns
+        if is_sales_like and not is_catalog_like:
+            sales_df = products_df
+            products_df = None
+
+    # Validate lookback_days
+    try:
+        lookback_days = int(lookback_days) if lookback_days is not None else 30
+    except (ValueError, TypeError):
+        lookback_days = 30
+    lookback_days = max(1, lookback_days)
+
     # 1. Resolve product catalog
     if products_df is None:
         try:
             products_df = get_products_df(active_only=True, db_path=db_path)
+        except Exception:
+            products_df = pd.DataFrame()
+    elif not isinstance(products_df, pd.DataFrame):
+        try:
+            products_df = pd.DataFrame(products_df)
         except Exception:
             products_df = pd.DataFrame()
 
@@ -116,6 +155,11 @@ def calculate_inventory_intelligence(
             sales_df = get_all_sales_df(db_path=db_path)
         except Exception:
             sales_df = pd.DataFrame()
+    elif not isinstance(sales_df, pd.DataFrame):
+        try:
+            sales_df = pd.DataFrame(sales_df)
+        except Exception:
+            sales_df = pd.DataFrame()
 
     # Determine effective observation date range from sales data
     has_valid_sales = (
@@ -129,7 +173,12 @@ def calculate_inventory_intelligence(
     if has_valid_sales:
         sales_clean = sales_df.dropna(subset=["Date", "Quantity", "Product"]).copy()
         sales_clean["Date"] = pd.to_datetime(sales_clean["Date"], errors="coerce")
+        sales_clean["Quantity"] = pd.to_numeric(sales_clean["Quantity"], errors="coerce").fillna(0)
+        sales_clean["Product"] = sales_clean["Product"].astype(str).str.strip()
+        if "Sales" in sales_clean.columns:
+            sales_clean["Sales"] = pd.to_numeric(sales_clean["Sales"], errors="coerce").fillna(0.0)
         sales_clean = sales_clean.dropna(subset=["Date"])
+        sales_clean = sales_clean[(sales_clean["Quantity"] > 0) & (sales_clean["Product"] != "")]
 
         # Check product name overlap between sales and inventory catalog
         sales_products = set(sales_clean["Product"].dropna().astype(str).str.strip().str.lower())

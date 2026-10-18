@@ -22,18 +22,30 @@ import numpy as np
 
 def generate_structured_business_insights(
     df: pd.DataFrame,
-    inventory_df: Optional[pd.DataFrame] = None
+    inventory_df: Optional[pd.DataFrame] = None,
+    inventory_intelligence_df: Optional[pd.DataFrame] = None,
+    **kwargs: Any
 ) -> List[Dict[str, str]]:
     """Generate 4-tier commercial recommendations from active sales and inventory data.
 
     Args:
         df: Filtered sales DataFrame.
         inventory_df: Optional inventory intelligence DataFrame.
+        inventory_intelligence_df: Optional alias for inventory_df.
+        **kwargs: Absorbs arbitrary keyword parameters defensively.
 
     Returns:
         List of structured insight dictionaries containing:
         ['category', 'title', 'observation', 'insight', 'explanation', 'action', 'severity']
     """
+    if inventory_df is None and inventory_intelligence_df is not None:
+        inventory_df = inventory_intelligence_df
+    elif inventory_df is None:
+        for alias in ("inv_intel_df", "intel_df", "inventory_intel_df"):
+            if alias in kwargs and isinstance(kwargs[alias], pd.DataFrame):
+                inventory_df = kwargs[alias]
+                break
+
     insights: List[Dict[str, str]] = []
 
     if df.empty:
@@ -234,10 +246,18 @@ def generate_structured_business_insights(
     # 6. Inventory Replenishment Urgency (if inventory data supplied)
     # -------------------------------------------------------------
     if inventory_df is not None and not inventory_df.empty:
-        critical_items = inventory_df[inventory_df["Stock_Health"].isin(["🚨 OUT OF STOCK", "⚠️ CRITICAL REORDER"])]
+        health_col = "Stock_Health" if "Stock_Health" in inventory_df.columns else "health_status"
+        name_col = "Product Name" if "Product Name" in inventory_df.columns else "product_name"
+        cost_col = "Estimated_Reorder_Cost" if "Estimated_Reorder_Cost" in inventory_df.columns else "estimated_reorder_cost"
+
+        if health_col in inventory_df.columns:
+            critical_items = inventory_df[inventory_df[health_col].astype(str).str.contains("OUT OF STOCK|CRITICAL|Low Stock|Out of Stock", case=False, na=False)]
+        else:
+            critical_items = pd.DataFrame()
+
         if not critical_items.empty:
-            crit_names = critical_items["Product Name"].head(3).tolist()
-            total_reorder_cost = float(critical_items["Estimated_Reorder_Cost"].sum())
+            crit_names = critical_items[name_col].head(3).tolist() if name_col in critical_items.columns else []
+            total_reorder_cost = float(critical_items[cost_col].sum()) if cost_col in critical_items.columns else 0.0
 
             insights.append({
                 "category": "Inventory Management",
