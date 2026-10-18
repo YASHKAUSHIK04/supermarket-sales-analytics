@@ -1,167 +1,272 @@
-# Supermarket Sales & Customer Analytics Dashboard
+# Supermarket Sales & Retail Intelligence System
 
-![Project Status](https://img.shields.io/badge/Status-Upgraded%20%26%20Tested-success)
+![Project Status](https://img.shields.io/badge/Status-Upgraded%20%26%20Production--Ready-success)
 ![Python Version](https://img.shields.io/badge/Python-3.12%2B-blue)
+![Backend](https://img.shields.io/badge/Backend-SQLite3%20Relational%20DB-lightgrey)
 ![Framework](https://img.shields.io/badge/Framework-Streamlit-red)
-![Analytics](https://img.shields.io/badge/Analytics-Pandas%20%7C%20Plotly-green)
-![Tests](https://img.shields.io/badge/Unit%20Tests-11%20Passed-brightgreen)
+![Reporting](https://img.shields.io/badge/Reporting-ReportLab%20%7C%20openpyxl-orange)
+![Tests](https://img.shields.io/badge/Unit%20Tests-46%20Passed-brightgreen)
+![License](https://img.shields.io/badge/License-MIT-blue)
 
 **Project Owner**: [Yash Kaushik](https://github.com/YASHKAUSHIK04)  
-**Repository**: [github.com/YASHKAUSHIK04/supermarket-sales-analytics](https://github.com/YASHKAUSHIK04/supermarket-sales-analytics)  
-
-A portfolio-ready **Data Analytics Application** delivering end-to-end business intelligence, customer segmentation, dynamic dataset upload (CSV & Excel), automated column mapping, and product performance analytics for retail supermarket chains.
-
----
-
-## 📌 Executive Summary & Business Problem
-
-Retail supermarket operations generate high-velocity transaction streams encompassing diverse customer segments, varying merchandise categories, and changing payment preferences across different regional branches. Without structured data analytics and interactive executive dashboards, retail leaders face significant operational friction:
-
-1. **Revenue vs. Volume Disconnect**: High-volume staple items often generate modest revenue per unit, while premium beverage, personal care, and dairy items drive major gross cash flow.
-2. **Customer Segmentation Blind Spots**: Supermarket managers often lack visibility into whether membership loyalty tiers actually deliver higher Average Transaction Values (ATV) or simply increase repeat purchase frequency.
-3. **Regional Branch Discrepancies**: Variance across branches (Jaipur, Mumbai, Delhi, Bengaluru) requires localized inventory allocations and targeted category promotions.
-4. **Digital Settlement Adoption**: Fast-moving consumer goods (FMCG) retailers need accurate visibility into payment methods (UPI, Net Banking, Card, Cash) to optimize checkout counter throughput and banking fee reconciliation.
-5. **Universal Dataset Portability**: Store operators need the ability to seamlessly upload external CSV or Excel spreadsheets, automatically reconcile differing column naming schemes, validate mathematical integrity, and instantly generate interactive visual analytics.
-
-This project delivers a complete solution: ingesting, validating, transforming, and visualizing both the baseline **500 authentic transaction records** and **any user-uploaded retail dataset** through an interactive Streamlit and Plotly dashboard.
+**Academic Level**: BCA Capstone / Final Year Software & Data Engineering Project  
+**Repository**: [github.com/YASHKAUSHIK04/supermarket-sales-analytics](https://github.com/YASHKAUSHIK04/supermarket-sales-analytics)
 
 ---
 
-## 🎯 Upgraded Core Features
+## 📌 Executive Overview
 
-### 1. 📤 Universal Dataset Upload (CSV & Excel)
-- **Multi-Format Support**: Ingest `.csv` (with UTF-8 and Latin-1 encoding fallbacks) and Excel `.xlsx` / `.xls` spreadsheets via `openpyxl`.
-- **Smart Column Alias Detection**: Automatically maps common retail header variations to canonical fields.
-- **Interactive Manual Mapping**: If non-standard column headers are encountered, users can easily map them via an intuitive Streamlit dropdown interface.
-- **Missing Metric Computation**: If `Sales` is omitted, it is automatically computed as $\text{Sales} = \text{Quantity} \times \text{Unit Price}$. If `Unit Price` is missing, it is derived as $\text{Sales} \div \text{Quantity}$.
-- **Mathematical Integrity & Discrepancy Auditing**: Real-time validation checks whether $\text{Sales} = \text{Quantity} \times \text{Unit Price}$. Any discrepancies ($> ₹0.05$) are highlighted in an audit report.
+The **Supermarket Sales & Retail Intelligence System** is an enterprise-grade, full-stack business intelligence and data engineering application. Built with Python 3.12, Streamlit, and a persistent SQLite relational database, the system transforms raw supermarket point-of-sale (POS) data into real-time operational insights, inventory stock monitoring, automated data-quality anomaly auditing, and publication-ready executive PDF and Excel reports.
 
-### 2. ⚡ Dynamic Reactive Filters
-- **Zero-Stale State Re-indexing**: Switching between datasets immediately flushes stale filter selections, preventing `KeyError` or empty DataFrame collisions.
-- **Dynamic Date Bounds & Categories**: Date pickers and multi-select filters dynamically populate from the active dataset.
-- **Active Dataset Badge**: Header banner clearly identifies the currently analyzed dataset name, record count, and active filter subset.
-
-### 3. 🔬 Robust Business Intelligence & Standardized Currency
-- **Defensive Insight Engine**: Empirical insight calculations dynamically adapt to single-city, single-category, or non-standard customer loyalty tiers without crashes.
-- **Consistent Currency Formatting**: All metric cards, Plotly charts, hover tooltips, and data tables uniformly use the Indian Rupee symbol (**₹**).
-- **Strict Empirical Integrity**: Zero fabricated metrics (no invented profit, COGS, margins, or synthetic customers).
+Unlike static dashboards, this system provides:
+1. **Persistent Relational Database Backend**: Built-in `sqlite3` relational schema with foreign key constraints, indexes, transaction ACID semantics, and non-destructive CSV/Excel ingestion.
+2. **Double-Entry Inventory Stock Ledger**: Real-time sales velocity monitoring, safety stock thresholds, days-of-stock countdown, and overdraft-protected ledger reconciliation.
+3. **Dual-Layer Anomaly Detection**: Deterministic mathematical discrepancies and bounds checks combined with statistical outlier detection (Tukey's IQR method and temporal daily volume surges).
+4. **4-Tier Business Insights**: Structured actionable recommendations following the **Observation ➔ Analytical Insight ➔ Possible Explanation ➔ Recommended Action** framework.
+5. **Executive Reporting Engine**: Automated generation of styled multi-page PDF executive briefings via ReportLab flowables and 7-sheet formatted Excel audit workbooks via `openpyxl`.
 
 ---
 
-## 📊 Dataset Schema & Canonical Data Dictionary
+## 🏗️ System Architecture
 
-| Canonical Column | Data Type | Recognized Aliases / Variations | Description |
-| :--- | :--- | :--- | :--- |
-| **Invoice ID** | String | `invoice_id`, `invoice no`, `order id`, `bill no`, `id`, `txn_id` | Alphanumeric invoice identifier |
-| **Date** | Datetime | `invoice date`, `order date`, `txn date`, `sale date`, `timestamp` | Date of customer purchase |
-| **Branch** | Category | `store`, `outlet`, `branch id`, `store id`, `location id` | Retail branch identifier |
-| **City** | Category | `location`, `region`, `town`, `market`, `metro` | City where branch operates |
-| **Customer Type** | Category | `customer_type`, `membership`, `member type`, `loyalty tier` | Customer loyalty status (`Member` / `Normal`) |
-| **Gender** | Category | `sex` | Customer gender (`Male` / `Female`) |
-| **Product** | Category | `product name`, `item`, `item name`, `sku`, `description` | Specific retail SKU purchased |
-| **Category** | Category | `product category`, `department`, `dept`, `merchandise group` | Merchandise department |
-| **Quantity** | Integer | `qty`, `units`, `quantity sold`, `volume`, `count` | Units purchased (1–10) |
-| **Unit Price** | Float (₹) | `price`, `rate`, `unit cost`, `mrp`, `selling price` | Price per single product unit |
-| **Payment** | Category | `payment method`, `mode`, `payment mode`, `payment type`, `tender` | Payment method utilized at POS |
-| **Rating** | Float | `satisfaction`, `score`, `feedback`, `stars`, `csat` | Customer satisfaction rating (1.0–5.0) |
-| **Sales** | Float (₹) | `total sales`, `total`, `amount`, `revenue`, `gross sales` | Total transaction amount ($\text{Qty} \times \text{Price}$) |
-
----
-
-## 🛠️ Technology Stack
-
-- **Core Language**: Python 3.12+ (64-bit AMD64)
-- **Data Manipulation**: Pandas 2.2+, NumPy 1.26+
-- **Spreadsheet Parsing**: openpyxl 3.1+
-- **Interactive Visualization**: Plotly Express, Plotly Graph Objects 5.20+
-- **Web Dashboard**: Streamlit 1.35+
-- **Notebook & Research**: Jupyter Notebook (`nbformat`, `ipykernel`)
-- **Automated Testing**: Python `unittest` framework (11 passing tests)
-
----
-
-## 📁 Project Architecture
-
-```
-supermarket-sales-analytics/
-│
-├── data/
-│   ├── raw/
-│   │   ├── supermarket_sales_raw.txt          # Original unedited OCR text dump
-│   │   └── supermarket_sales_raw.csv          # Reconstructed tabular raw dataset
-│   └── processed/
-│       └── supermarket_sales_cleaned.csv      # Cleaned baseline dataset (500 records)
-│
-├── notebooks/
-│   └── supermarket_eda.ipynb                  # Executed & annotated Jupyter EDA notebook
-│
-├── src/
-│   ├── __init__.py                            # Module package initializer
-│   ├── data_cleaning.py                       # OCR parsing and baseline cleaning pipeline
-│   ├── data_loader.py                         # Multi-format CSV/Excel upload & validation engine
-│   ├── analysis.py                            # Modular KPI engine, aggregations, & defensive insights
-│   └── visualization.py                       # Plotly figures, unified layouts, & ₹ currency styling
-│
-├── tests/
-│   ├── __init__.py                            # Test package initializer
-│   └── test_upload_and_analysis.py            # Automated test suite (11 unit tests)
-│
-├── app.py                                     # Interactive Streamlit dashboard application
-├── requirements.txt                           # Pinned package dependencies (including openpyxl)
-├── README.md                                  # Complete project documentation
-├── .gitignore                                 # Git ignore patterns
-└── PROJECT_REPORT_CONTENT.md                  # Comprehensive formal internship report
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                                  USER PRESENTATION TIER                                │
+│                     Streamlit Reactive Web Application (11 Analytical Tabs)             │
+└───────────────────────────────────────────┬────────────────────────────────────────────┘
+                                            │
+                    ┌───────────────────────┴───────────────────────┐
+                    ▼                                               ▼
+┌───────────────────────────────────────┐       ┌────────────────────────────────────────┐
+│         DATA INGESTION ENGINE         │       │          ANALYTICS & BI ENGINE         │
+│  • CSV / Excel (openpyxl) Ingestion   │       │  • Sales, Product & Customer KPIs      │
+│  • Smart Canonical Column Aliasing    │       │  • Plotly Express & Graph Objects      │
+│  • Math & Bounds Validation Checks    │       │  • 4-Tier Prescriptive Insights        │
+└───────────────────┬───────────────────┘       └───────────────────┬────────────────────┘
+                    │                                               │
+                    ▼                                               ▼
+┌───────────────────────────────────────┐       ┌────────────────────────────────────────┐
+│     INVENTORY & ANOMALY ENGINES       │       │        EXECUTIVE REPORT ENGINE         │
+│  • Sales Velocity & Days Remaining    │       │  • ReportLab Two-Pass NumberedCanvas   │
+│  • Automated Reorder Calculations     │       │  • Multi-Sheet Formatted Excel Reports │
+│  • Tukey IQR & 2.5σ Surge Anomaly Log │       │  • RFC-4180 Compliant CSV Export       │
+└───────────────────┬───────────────────┘       └───────────────────┬────────────────────┘
+                    │                                               │
+                    └───────────────────────┬───────────────────────┘
+                                            │
+                                            ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                               RELATIONAL STORAGE ENGINE                                │
+│                        SQLite 3 Persistent Database (WAL Mode)                         │
+│  [categories] ──< [products] ──< [inventory_stock] ──< [inventory_movements]          │
+│                       │                                                                │
+│                       └──< [sales_transactions]  |  [anomaly_records]  |  [report_hist]│
+└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 💻 Dashboard Tabs & Visualizations
+## 🗄️ Database Schema & Relational Design
 
-1. **📈 Sales Overview**: Monthly / Daily / Day-of-Week sales trendlines with dual-axis transaction counts, city sales donut chart, and branch/category bar charts.
-2. **🛍️ Product Analysis**: Top 10 by Revenue vs. Top 10 by Volume sold, plus a High-Volume vs High-Value bubble scatter matrix ($\text{Unit Price} \times \text{Quantity}$).
-3. **👥 Customer Analysis**: Member vs. Normal spending behavior, gender distribution, segment interaction bar charts, and Average Transaction Value (ATV).
-4. **💳 Payment Analytics**: Payment channel share donut chart, ATV per payment mode, and customer type preference cross-tabulation table.
-5. **⭐ Ratings & Feedback**: Customer rating histogram with mean line, alongside category, city, and customer-type satisfaction comparisons.
-6. **💡 Key Business Insights**: Empirical data-derived observations dynamically adapted to active data, accompanied by strategic operational recommendations.
-7. **📋 Data Explorer**: Full filtered data table with sorting, column statistics, and CSV download capability.
+The system implements a normalized relational database in `data/supermarket_intelligence.db` enforcing strict primary and foreign key constraints (`PRAGMA foreign_keys = ON;`).
+
+```sql
+-- 1. Merchandise Categories
+CREATE TABLE categories (
+    category_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category_name TEXT UNIQUE NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. Master Product Catalog
+CREATE TABLE products (
+    product_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_sku TEXT UNIQUE NOT NULL,
+    product_name TEXT NOT NULL,
+    category_id INTEGER NOT NULL REFERENCES categories(category_id),
+    unit_cost REAL NOT NULL CHECK(unit_cost > 0),
+    selling_price REAL NOT NULL CHECK(selling_price > 0),
+    safety_stock_level INTEGER DEFAULT 15 CHECK(safety_stock_level >= 0),
+    is_active INTEGER DEFAULT 1 CHECK(is_active IN (0, 1)),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 3. Warehouse Stock Balance
+CREATE TABLE inventory_stock (
+    stock_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER UNIQUE NOT NULL REFERENCES products(product_id),
+    current_stock INTEGER NOT NULL CHECK(current_stock >= 0),
+    reorder_point INTEGER NOT NULL DEFAULT 20,
+    last_restocked_at TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 4. Immutable Stock Movement Ledger
+CREATE TABLE inventory_movements (
+    movement_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL REFERENCES products(product_id),
+    movement_type TEXT NOT NULL CHECK(movement_type IN ('receipt', 'sale_deduction', 'adjustment', 'return')),
+    quantity_change INTEGER NOT NULL,
+    resulting_stock INTEGER NOT NULL CHECK(resulting_stock >= 0),
+    reference_reason TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 5. Sales Transactions
+CREATE TABLE sales_transactions (
+    transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    invoice_id TEXT UNIQUE NOT NULL,
+    branch TEXT NOT NULL,
+    city TEXT NOT NULL,
+    customer_type TEXT NOT NULL,
+    gender TEXT NOT NULL,
+    product_id INTEGER NOT NULL REFERENCES products(product_id),
+    unit_price REAL NOT NULL CHECK(unit_price > 0),
+    quantity INTEGER NOT NULL CHECK(quantity > 0),
+    sales REAL NOT NULL CHECK(sales > 0),
+    transaction_date DATE NOT NULL,
+    payment_method TEXT NOT NULL,
+    rating REAL CHECK(rating >= 1.0 AND rating <= 5.0),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 6. Anomaly Audit Records
+CREATE TABLE anomaly_records (
+    anomaly_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    invoice_id TEXT,
+    anomaly_type TEXT NOT NULL,
+    severity TEXT NOT NULL CHECK(severity IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
+    description TEXT NOT NULL,
+    expected_value TEXT,
+    actual_value TEXT,
+    recommended_action TEXT,
+    is_resolved INTEGER DEFAULT 0 CHECK(is_resolved IN (0, 1)),
+    detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 7. Report Generation History
+CREATE TABLE report_history (
+    report_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    report_type TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    file_size_bytes INTEGER NOT NULL,
+    dataset_scope TEXT NOT NULL,
+    filter_summary TEXT,
+    record_count INTEGER NOT NULL,
+    generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
 
 ---
 
-## 🧪 Automated Testing
+## 📦 Inventory Intelligence Engine
 
-The project includes an automated test suite verifying data ingestion, alias mapping, mathematical assertions, defensive insight calculations, and empty-state handling.
+Retail operations require predictive stock replenishment to prevent out-of-stock losses while minimizing holding costs. The inventory engine executes the following core algorithms:
 
-Run tests using Python 3.12:
+### 1. Daily Sales Velocity ($V$)
+$$\text{Velocity} = \frac{\sum \text{Quantity Sold}}{\text{Active Calendar Days Analyzed}}$$
+
+- **Fast Moving**: Velocity $\ge 1.5$ units/day
+- **Normal Moving**: $0.5 \le \text{Velocity} < 1.5$ units/day
+- **Slow Moving**: $0.0 < \text{Velocity} < 0.5$ units/day
+- **Non-Moving**: Velocity $= 0.0$ units/day
+
+### 2. Days of Stock Remaining ($D$)
+$$D = \frac{\text{Current Stock Level}}{\text{Daily Sales Velocity}}$$
+
+### 3. Stock Health Badges
+- 🔴 **Out of Stock**: $\text{Current Stock} = 0$
+- 🟡 **Low Stock**: $0 < \text{Current Stock} \le \text{Safety Stock Level}$
+- 🟢 **Healthy**: $\text{Safety Stock Level} < \text{Current Stock} \le (\text{Safety Stock} \times 3)$
+- 🔵 **Overstocked**: $\text{Current Stock} > (\text{Safety Stock} \times 3)$
+
+### 4. Automated Reorder Policy
+$$\text{Target Stock} = \max(\text{Safety Stock} \times 2.5, 50)$$
+$$\text{Reorder Quantity} = \max(0, \text{Target Stock} - \text{Current Stock})$$
+$$\text{Estimated Reorder Cost} = \text{Reorder Quantity} \times \text{Unit Cost}$$
+
+---
+
+## 🚨 Dual-Layer Anomaly Detection Engine
+
+The anomaly detection engine safeguards data quality through two distinct complementary layers:
+
+### Layer 1: Deterministic Business Rule Violations
+1. **Arithmetic Calculation Discrepancies**:
+   $$|\text{Sales} - (\text{Quantity} \times \text{Unit Price})| > \$0.05$$
+   Flags point-of-sale software bugs or rounding corruptions (`CRITICAL` severity).
+2. **Negative / Zero Values**: Detects quantities $\le 0$ or unit prices $\le 0$ violating physical retail constraints (`CRITICAL` severity).
+3. **Rating Range Violations**: Flags satisfaction scores outside standard $1.0 \le \text{Rating} \le 5.0$ bounds (`MEDIUM` severity).
+4. **Duplicate Invoice IDs**: Detects conflicting or duplicated transaction numbers (`CRITICAL` severity).
+
+### Layer 2: Statistical Anomaly Detection
+1. **Tukey's Interquartile Range (IQR) Outlier Rule**:
+   $$IQR = Q_3 - Q_1$$
+   $$\text{Upper Threshold} = Q_3 + 1.5 \times IQR$$
+   - Guarded by $N \ge 15$ minimum sample size to prevent false positives on small subsets.
+   - Includes standard deviation fallback ($\mu + 3\sigma$) when low variance results in $IQR = 0$.
+2. **Temporal Volume Surge Analysis**:
+   - Computes daily aggregated transaction counts across $15+$ days.
+   - Flags days exceeding $\mu_{\text{daily}} + 2.5\sigma_{\text{daily}}$ as unexplained demand surges.
+
+---
+
+## 💡 4-Tier Business Insights Framework
+
+Rather than generating generic AI commentary, the system generates empirical, verifiable insights formatted into four rigorous tiers:
+
+| Tier | Component | Definition | Example from Supermarket System |
+| :---: | :--- | :--- | :--- |
+| **Tier 1** | **👁️ Observation** | Objective, verifiable mathematical statement directly extracted from filtered data. | *"Branch C accounts for \$72,469.45 (29.7% of total sales), outperforming Branch A by \$20,112.37 (38.4% higher)."* |
+| **Tier 2** | **📊 Analytical Insight** | Business implication and context derived from the observation. | *"Regional revenue generation is heavily concentrated in Branch C, indicating strong market penetration but high revenue reliance on a single outlet."* |
+| **Tier 3** | **❓ Possible Explanation** | Plausible operational, demographic, or foot-traffic hypotheses. | *"Branch C may enjoy higher foot traffic, an optimal downtown retail location, or superior category merchandising."* |
+| **Tier 4** | **🎯 Recommended Action** | Specific, measurable, and actionable directive for retail store managers. | *"Audit Branch C's promotional strategy and inventory mix to identify transferable best practices for Branch A and B."* |
+
+---
+
+## 📄 Executive Reporting Engine
+
+### 1. Executive PDF Briefing (ReportLab)
+- **Flowable Architecture**: Uses ReportLab `SimpleDocTemplate`, `Paragraph`, `Table`, and `HRFlowable` to eliminate layout clipping.
+- **Dynamic Two-Pass `NumberedCanvas`**: Computes total page count dynamically to stamp clean headers and `"Page X of Y"` footers on every page.
+- **Executive Styling**: Incorporates deep navy headers (`#1E3A8A`), high-contrast metric cards, structured 4-tier insight blocks, and stock replenishment tables.
+
+### 2. Formatted Multi-Sheet Excel Report (`openpyxl`)
+Generates a structured 7-sheet workbook:
+1. `Executive Summary`: High-level KPIs, date range, active filters, and dataset metadata.
+2. `Sales Transactions`: Complete filtered sales transactions with frozen header rows and currency formatting.
+3. `Product Performance`: Aggregated by SKU with units sold, total revenue, average price, and rating.
+4. `Category Performance`: Merchandise group breakdown with revenue share percentage and volume.
+5. `Inventory Intelligence`: Current stock levels, daily sales velocity, days remaining, health badges, and reorder cost.
+6. `Anomaly Audit Log`: Complete list of flagged issues with rule IDs, affected fields, and suggested actions.
+7. `Business Insights Matrix`: Full structured 4-tier insight matrix.
+
+---
+
+## 🧪 Automated Test Suite
+
+The project includes **46 comprehensive automated unit tests** covering all modules:
+
 ```powershell
 py -3.12 -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-### Test Coverage Results:
-```text
-test_csv_upload_aliased_columns ... ok
-test_csv_upload_exact_columns ... ok
-test_default_dataset_integrity ... ok
-test_defensive_insights_custom_customer_types ... ok
-test_defensive_insights_single_city ... ok
-test_empty_dataframe_handling ... ok
-test_excel_upload_xlsx ... ok
-test_math_discrepancy_detection ... ok
-test_missing_required_columns ... ok
-test_missing_sales_auto_calculation ... ok
-test_missing_unit_price_auto_calculation ... ok
-
-----------------------------------------------------------------------
-Ran 11 tests in 1.18s
-
-OK
-```
+### Test Suite Breakdown:
+- `tests/test_database.py` (8 tests): Schema DDL, foreign key enforcement, baseline seeding, idempotent imports (`skip_duplicates` / `replace_all`), product CRUD, stock movement ledger, anomaly and report logging.
+- `tests/test_inventory.py` (5 tests): Sales velocity, days remaining, safety stock health badges, reorder calculations, ledger overdraft protection.
+- `tests/test_anomaly.py` (9 tests): Math mismatch detection, negative value traps, rating bounds, duplicate invoices, Tukey's IQR rule, temporal spikes, small dataset safety.
+- `tests/test_insights.py` (5 tests): 4-tier structure integrity, branch disparity insights, category volume dynamics, inventory urgency integration, empty DataFrame safety.
+- `tests/test_reports.py` (5 tests): PDF generation, binary `%PDF` verification, 7-sheet Excel workbook structure, column width auto-adjustment, CSV export.
+- `tests/test_upload_and_analysis.py` (14 tests): CSV/Excel ingestion, alias auto-mapping, KPI calculations, Plotly dark-theme styling, empty dataset handling.
 
 ---
 
-## 🚀 Local Installation & Execution
+## 🚀 Installation & Local Execution
 
 ### 1. Prerequisites
-Ensure you have Python 3.12+ (64-bit) installed.
+- Python 3.12 or higher (64-bit AMD64)
+- Git installed
 
 ### 2. Clone the Repository
 ```powershell
@@ -174,47 +279,47 @@ cd supermarket-sales-analytics
 py -3.12 -m pip install -r requirements.txt
 ```
 
-### 4. Run the Baseline Data Pipeline (Optional)
+### 4. Run the Automated Test Suite
 ```powershell
-py -3.12 src/data_cleaning.py
+py -3.12 -m unittest discover -s tests -p "test_*.py" -v
 ```
 
 ### 5. Launch the Streamlit Dashboard
 ```powershell
 py -3.12 -m streamlit run app.py
 ```
-The dashboard will open automatically in your browser at `http://localhost:8501`.
+Open your browser and navigate to `http://localhost:8501`.
 
 ---
 
-## ☁️ Streamlit Cloud Deployment Guide
+## 🎓 BCA / Final Year Capstone Viva Preparation Guide
 
-1. Push your updated repository to GitHub:
-   ```powershell
-   git add .
-   git commit -m "Upgrade: CSV/Excel upload, alias mapping, dynamic filters, test suite"
-   git push origin master
-   ```
-2. Navigate to [share.streamlit.io](https://share.streamlit.io/) and log in with your GitHub account.
-3. Click **"New app"** and select:
-   - **Repository**: `YASHKAUSHIK04/supermarket-sales-analytics`
-   - **Branch**: `master`
-   - **Main file path**: `app.py`
-4. Click **"Deploy!"**. Streamlit Cloud will automatically install all dependencies from `requirements.txt` (including `openpyxl`) and host your dashboard live.
+When presenting this project during a college viva examination or technical interview, use the following structured answers:
 
----
+### Q1: Why did you choose SQLite over in-memory Pandas or flat CSV files?
+> **Answer**: *"Flat CSV files lack ACID transaction guarantees, referential integrity, and concurrency controls. By implementing SQLite with `PRAGMA foreign_keys = ON;`, we ensure that sales transactions cannot reference non-existent products, inventory deductions cannot result in negative stock, and all inventory receipts are recorded in an immutable, append-only ledger (`inventory_movements`). Furthermore, SQLite is built into Python's standard library, making the project 100% portable with zero external database server setup required."*
 
-## 📈 Key Verifiable Findings (Baseline Dataset)
+### Q2: How does your inventory system prevent negative stock overdrafts?
+> **Answer**: *"Our inventory deduction engine in `src/inventory.py` and `src/database.py` executes a two-phase check. In Phase 1, it queries current stock for each product and verifies whether $\text{Current Stock} \ge \text{Deduction Qty}$. If any product suffers a shortfall, the entire transaction is safely aborted without partial deductions. In Phase 2, the ledger balance is updated atomically using a database transaction with `CHECK(resulting_stock >= 0)` constraint enforcement."*
 
-1. **Price-Driven vs Volume-Driven SKUs**: Products like `Cheese` (Unit price ~₹200–₹235), `Coffee` (~₹170–₹195), and `Shampoo` (~₹165–₹195) generate the highest sales revenue despite modest purchase counts. Conversely, `Potato` (194 units), `Chips` (168 units), and `Rice` (167 units) lead unit volume.
-2. **Loyalty Program Dynamics**: Customer Type breakdown shows 296 transactions from Members (59.2%) and 204 from Normal shoppers (40.8%). The similarity in ATV (~₹483 vs ₹497) indicates that membership acts primarily as a visit-frequency driver rather than an order-size inflator.
-3. **Geographic Distribution**: Mumbai (Branch C) leads total sales with ₹72,469.45 (29.7%), followed by Delhi (₹64,116.26), Bengaluru (₹55,468.29), and Jaipur (₹52,357.08).
-4. **Digital Settlement Dominance**: UPI and Net Banking combined account for **54.5%** of revenue with significantly higher ATV (>₹515) than Cash (₹442.95).
+### Q3: How does the anomaly detection engine work without paid machine learning APIs?
+> **Answer**: *"We implemented a dual-layer architecture. Layer 1 uses deterministic rules: mathematical consistency verification ($|\text{Sales} - (\text{Quantity} \times \text{Unit Price})| \le \$0.05$), positive number constraints, and bounds checking. Layer 2 uses statistical distribution modeling: Tukey's Interquartile Range ($Q_3 + 1.5 \times IQR$) to identify price and volume outliers, combined with a daily aggregate rolling standard deviation test ($> 2.5\sigma$) to catch abnormal single-day sales spikes. This is deterministic, explainable, lightweight, and requires no external API tokens."*
+
+### Q4: What is the 4-tier business insight framework?
+> **Answer**: *"Many dashboards present isolated charts that leave managers wondering 'what should I do?'. Our 4-tier framework systematically bridges the gap between raw data and executive decision-making:
+> 1. **Observation**: What the data literally shows ($X > Y$).
+> 2. **Analytical Insight**: Why this matters to store operations.
+> 3. **Possible Explanation**: Plausible retail hypotheses (foot traffic, stock placement).
+> 4. **Recommended Action**: Concrete operational directives for the store manager."*
+
+### Q5: How did you implement automated PDF and Excel report generation?
+> **Answer**: *"We utilized ReportLab's Platypus flowable architecture. Instead of hardcoding absolute coordinates that clip text on different screen resolutions, we used `SimpleDocTemplate` with flowable `Paragraph`s and `Table`s that wrap automatically. To display dynamic 'Page X of Y' page numbers, we implemented a custom two-pass `NumberedCanvas`. For Excel, we used `openpyxl` to build a 7-sheet workbook featuring custom navy headers, auto-adjusted column dimensions, and formatted currency numbers."*
 
 ---
 
 ## 👤 Author & Attribution
 
 - **Project Lead**: [Yash Kaushik](https://github.com/YASHKAUSHIK04)
-- **Repository**: [YASHKAUSHIK04/supermarket-sales-analytics](https://github.com/YASHKAUSHIK04/supermarket-sales-analytics)
+- **Degree**: Bachelor of Computer Applications (BCA) Capstone Project
+- **GitHub Repository**: [YASHKAUSHIK04/supermarket-sales-analytics](https://github.com/YASHKAUSHIK04/supermarket-sales-analytics)
 - **License**: MIT Open Source License

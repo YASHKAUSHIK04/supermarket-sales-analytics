@@ -37,3 +37,15 @@ wheels/
 # OS
 .DS_Store
 Thumbs.db
+
+# SQLite Databases
+*.db
+*.sqlite
+*.sqlite3
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# Generated Reports & Exports
+reports/
+*.pdf

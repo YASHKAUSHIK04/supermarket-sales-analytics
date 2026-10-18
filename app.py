@@ -1,22 +1,28 @@
 """
-Supermarket Sales & Customer Analytics Dashboard
-Interactive Dashboard built with Streamlit, Plotly, and Pandas.
+Supermarket Sales & Retail Intelligence System
+================================================
+Full-Stack Retail Analytics, Relational Database Backend, Inventory Intelligence,
+Automated Anomaly Detection, 4-Tier Business Insights, and Executive Report Engine.
 
-Author: Yash Kaushik
+Author: Yash Kaushik (BCA Capstone Project)
 Repository: https://github.com/YASHKAUSHIK04/supermarket-sales-analytics
 """
 
 import sys
+import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
-# Add src to system path
+# Add project root to system path
 sys.path.append(str(Path(__file__).resolve().parent))
+
+# Analytics & Visualizations
 from src.analysis import (
     load_data,
     compute_kpis,
@@ -50,9 +56,47 @@ from src.data_loader import (
     CORE_MANDATORY_COLUMNS
 )
 
+# Relational Database, Inventory, Anomalies, Insights & Reports
+from src.database import (
+    get_connection,
+    init_db,
+    seed_database_if_empty,
+    get_sales_dataframe,
+    import_sales_dataframe,
+    get_all_products,
+    create_product,
+    update_product,
+    deactivate_product,
+    get_all_categories,
+    get_inventory_movements,
+    record_stock_movement,
+    log_anomalies_to_db,
+    get_anomalies_from_db,
+    resolve_anomaly_in_db,
+    log_report_generation,
+    get_report_history,
+)
+from src.inventory import (
+    calculate_inventory_intelligence,
+    get_inventory_summary_kpis,
+    reconcile_sales_deduction,
+)
+from src.anomaly import (
+    detect_anomalies,
+    get_anomaly_summary,
+)
+from src.insights import (
+    generate_structured_business_insights,
+)
+from src.reports import (
+    generate_pdf_report,
+    generate_excel_workbook,
+    generate_csv_export,
+)
+
 # Page configuration
 st.set_page_config(
-    page_title="Supermarket Sales & Customer Analytics",
+    page_title="Supermarket Sales & Retail Intelligence",
     page_icon="🛒",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -136,56 +180,67 @@ st.markdown("""
         line-height: 1.4;
     }
 
-    /* Insight Cards */
-    .insight-card {
+    /* 4-Tier Insight Cards */
+    .insight-card-4tier {
         background-color: #1e293b;
         border: 1px solid #334155;
         border-left: 4px solid #38bdf8;
-        border-radius: 6px;
-        padding: 14px 18px;
-        margin-bottom: 14px;
-        word-break: break-word;
-        overflow-wrap: break-word;
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin-bottom: 16px;
     }
-    .insight-badge {
+    .insight-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 10px;
+        border-bottom: 1px solid #334155;
+        padding-bottom: 8px;
+    }
+    .tier-row {
+        margin-bottom: 8px;
+        font-size: 0.88rem;
+        line-height: 1.5;
+    }
+    .tier-label {
+        font-weight: 700;
+        display: inline-block;
+        min-width: 130px;
+        color: #94a3b8;
+    }
+    .tier-obs { color: #cbd5e1; }
+    .tier-ins { color: #67e8f9; }
+    .tier-exp { color: #fde047; }
+    .tier-act { color: #4ade80; font-weight: 600; }
+
+    /* Badges */
+    .badge-pill {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 12px;
         font-size: 0.72rem;
         font-weight: 700;
         text-transform: uppercase;
-        background-color: #0f172a;
-        color: #38bdf8;
-        border: 1px solid #0284c7;
-        padding: 2px 8px;
-        border-radius: 4px;
-        display: inline-block;
-        margin-bottom: 6px;
+        letter-spacing: 0.05em;
     }
-    .insight-title {
-        font-size: 0.96rem;
-        font-weight: 600;
-        color: #f8fafc;
-        margin-bottom: 4px;
-        word-break: break-word;
-        line-height: 1.35;
-    }
-    .insight-text {
-        font-size: 0.88rem;
-        color: #cbd5e1;
-        line-height: 1.5;
-        word-break: break-word;
-    }
+    .badge-critical { background-color: #7f1d1d; color: #fecaca; border: 1px solid #b91c1c; }
+    .badge-high { background-color: #7c2d12; color: #fed7aa; border: 1px solid #ea580c; }
+    .badge-medium { background-color: #713f12; color: #fef08a; border: 1px solid #ca8a04; }
+    .badge-low { background-color: #14532d; color: #bbf7d0; border: 1px solid #16a34a; }
+    .badge-cat { background-color: #1e1b4b; color: #c7d2fe; border: 1px solid #4338ca; }
 
-    /* Quality Summary Card */
-    .quality-box {
+    /* Report Card */
+    .report-export-box {
         background-color: #1e293b;
         border: 1px solid #334155;
-        border-radius: 8px;
-        padding: 12px 16px;
-        margin-bottom: 14px;
-        font-size: 0.85rem;
-        color: #cbd5e1;
-        word-break: break-word;
+        border-radius: 10px;
+        padding: 18px;
+        height: 100%;
+        box-sizing: border-box;
     }
-    
+
     /* Streamlit Tabs text wrap protection */
     .stTabs [data-baseweb="tab-list"] {
         gap: 6px;
@@ -213,10 +268,20 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+# Initialize persistent SQLite tables and baseline seed
+@st.cache_resource
+def setup_sqlite_database():
+    """Ensure database schema and initial data are present."""
+    init_db()
+    seed_database_if_empty()
+    return True
+
+setup_sqlite_database()
+
 
 @st.cache_data
 def get_default_dataset() -> pd.DataFrame:
-    """Load and cache default cleaned dataset."""
+    """Load and cache default cleaned dataset from CSV."""
     return load_data()
 
 
@@ -226,17 +291,25 @@ def get_default_dataset() -> pd.DataFrame:
 st.sidebar.markdown("## 📁 **Data Source**")
 data_source_mode = st.sidebar.radio(
     "Data Source Selection",
-    options=["Default Dataset (500 Rows)", "Upload CSV or Excel"],
+    options=[
+        "SQLite Database (Persistent)",
+        "Default Dataset (500 Rows)",
+        "Upload CSV or Excel"
+    ],
     index=0,
     label_visibility="collapsed"
 )
 
 df_full: Optional[pd.DataFrame] = None
-active_dataset_name = "Supermarket Sales (Default - 500 Records)"
+active_dataset_name = "SQLite Database (Persistent)"
 upload_summary: Optional[Dict[str, Any]] = None
-current_dataset_token = "default"
+current_dataset_token = "sqlite_persistent"
 
-if data_source_mode == "Default Dataset (500 Rows)":
+if data_source_mode == "SQLite Database (Persistent)":
+    df_full = get_sales_dataframe()
+    current_dataset_token = f"sqlite_{len(df_full)}"
+    active_dataset_name = f"SQLite Database ({len(df_full):,} records)"
+elif data_source_mode == "Default Dataset (500 Rows)":
     df_full = get_default_dataset()
     current_dataset_token = "default_500"
     active_dataset_name = "Supermarket Sales (Default - 500 Records)"
@@ -293,7 +366,17 @@ else:
                 st.stop()
             else:
                 df_full = df_processed
-                st.sidebar.success(f"✅ Ingested {len(df_full):,} records successfully!")
+                st.sidebar.success(f"✅ Loaded {len(df_full):,} records successfully!")
+
+                # SQLite Ingestion button
+                with st.sidebar.expander("💾 Ingest to SQLite Database", expanded=False):
+                    st.caption("Store these transactions permanently in the relational database:")
+                    ingest_mode = st.radio("Conflict Strategy:", ["Skip Duplicates", "Replace All"], index=0, key="ingest_strat")
+                    if st.button("🚀 Write to Database", use_container_width=True):
+                        strategy = "skip_duplicates" if ingest_mode == "Skip Duplicates" else "replace_all"
+                        res = import_sales_dataframe(df_processed, if_exists=strategy)
+                        st.success(f"Successfully ingested {res['inserted_count']:,} records! (Skipped {res['skipped_duplicates']:,} duplicates)")
+                        st.rerun()
 
                 # Quality audit notice in sidebar
                 if upload_summary["math_discrepancy_count"] > 0 or upload_summary["warnings"]:
@@ -307,12 +390,12 @@ else:
             st.stop()
     else:
         # Prompt user to upload file
-        st.title("🛒 Supermarket Sales & Customer Analytics")
-        st.info("👋 **Welcome!** Please upload a CSV or Excel (`.xlsx`, `.xls`) file in the sidebar to begin analysis, or switch back to **'Default Dataset (500 Rows)'**.")
+        st.title("🛒 Supermarket Sales & Retail Intelligence")
+        st.info("👋 **Welcome!** Please upload a CSV or Excel (`.xlsx`, `.xls`) file in the sidebar to begin analysis, or switch to **'SQLite Database (Persistent)'**.")
         
         st.markdown("### 📋 Expected Data Format")
         st.markdown("""
-        Your dataset should ideally contain the following transaction fields (standard aliases are recognized automatically):
+        Your dataset should contain standard retail sales fields:
         - **Invoice ID** (`Invoice ID`, `Order ID`, `Bill No`)
         - **Date** (`Date`, `Invoice Date`, `Txn Date`)
         - **Branch** (`Branch`, `Store`, `Outlet`)
@@ -332,7 +415,6 @@ else:
 # -------------------------------------------------------------
 # DYNAMIC FILTER STATE SYNCHRONIZATION
 # -------------------------------------------------------------
-# Check if active dataset changed; if so, clear filter session state to prevent stale collisions
 if st.session_state.get("active_dataset_token") != current_dataset_token:
     filter_keys_to_reset = [
         "filter_cities", "filter_branches", "filter_categories",
@@ -520,25 +602,32 @@ if selected_payments:
 else:
     df_filtered = df_filtered.iloc[0:0]
 
+# Compute filter summary dictionary for reports
+active_filter_summary = {
+    "date_range": f"{date_range[0]} to {date_range[1]}" if isinstance(date_range, tuple) and len(date_range) == 2 else "All",
+    "cities": selected_cities,
+    "branches": selected_branches,
+    "categories": selected_categories,
+}
 
 # -------------------------------------------------------------
 # HEADER & EXECUTIVE SUMMARY
 # -------------------------------------------------------------
-st.title("🛒 Supermarket Sales & Customer Analytics")
+st.title("🛒 Supermarket Sales & Retail Intelligence System")
 
 # Active dataset indicator badge
 st.markdown(
     f"""<div class="dataset-badge">
-        <span>📊 <b>Active Dataset:</b> {active_dataset_name}</span>
+        <span>📊 <b>Active Source:</b> {active_dataset_name}</span>
         <span>•</span>
-        <span><b>{len(df_filtered):,}</b> of <b>{len(df_full):,}</b> records analyzed</span>
+        <span><b>{len(df_filtered):,}</b> of <b>{len(df_full):,}</b> transactions analyzed</span>
     </div>""",
     unsafe_allow_html=True
 )
 
 st.caption(
-    "A portfolio-ready data analytics dashboard examining supermarket revenue, customer segmentation, "
-    "product dynamics, and payment behaviors across retail branches."
+    "A full-stack enterprise retail analytics dashboard powered by Python, Streamlit, SQLite, and ReportLab. "
+    "Features automated anomaly detection, inventory velocity audits, and prescriptive business intelligence."
 )
 
 # Optional Data Quality audit expander for uploaded data
@@ -576,7 +665,7 @@ st.markdown(f"""
 <div class="kpi-grid">
     <div class="metric-card">
         <div class="metric-title" title="Total Sales">Total Sales</div>
-        <div class="metric-value" title="₹{kpis['total_sales']:,.2f}">₹{kpis['total_sales']:,.0f}</div>
+        <div class="metric-value" title="${kpis['total_sales']:,.2f}">${kpis['total_sales']:,.0f}</div>
         <div class="metric-subtitle" title="Gross Revenue">Gross Revenue</div>
     </div>
     <div class="metric-card">
@@ -591,7 +680,7 @@ st.markdown(f"""
     </div>
     <div class="metric-card">
         <div class="metric-title" title="Avg Order Value">Avg Order Value</div>
-        <div class="metric-value" title="₹{kpis['avg_transaction_value']:,.2f}">₹{kpis['avg_transaction_value']:,.1f}</div>
+        <div class="metric-value" title="${kpis['avg_transaction_value']:,.2f}">${kpis['avg_transaction_value']:,.1f}</div>
         <div class="metric-subtitle" title="Per Transaction">Per Transaction</div>
     </div>
     <div class="metric-card">
@@ -613,6 +702,16 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 
+# Pre-compute Inventory Intelligence, Anomalies & 4-Tier Insights
+inv_intel_df = calculate_inventory_intelligence()
+detected_anomalies = detect_anomalies(df_filtered)
+anomaly_summary = get_anomaly_summary(detected_anomalies)
+structured_insights = generate_structured_business_insights(
+    df_filtered,
+    inventory_intelligence_df=inv_intel_df
+)
+
+
 # -------------------------------------------------------------
 # TABS NAVIGATION
 # -------------------------------------------------------------
@@ -622,7 +721,11 @@ tabs = st.tabs([
     "👥 Customer Analysis",
     "💳 Payment Analytics",
     "⭐ Ratings & Feedback",
-    "💡 Key Business Insights",
+    "💡 Business Insights",
+    "📦 Inventory Intelligence",
+    "🚨 Anomaly Detection",
+    "📄 Report Center",
+    "🗄️ Database & CRUD",
     "📋 Data Explorer"
 ])
 
@@ -679,7 +782,7 @@ with tabs[1]:
             x_col="Total_Sales",
             y_col="Product",
             orientation="h",
-            title="Top 10 Products by Revenue (₹)",
+            title="Top 10 Products by Revenue ($)",
             color_col="Category",
             show_legend=True
         )
@@ -708,14 +811,14 @@ with tabs[1]:
     st.markdown("#### Category Summary Breakdown")
     st.dataframe(
         prod_perf["category_summary"].rename(columns={
-            "Total_Sales": "Total Sales (₹)",
+            "Total_Sales": "Total Sales ($)",
             "Total_Quantity": "Total Units",
-            "Avg_Unit_Price": "Avg Unit Price (₹)",
+            "Avg_Unit_Price": "Avg Unit Price ($)",
             "Avg_Rating": "Avg Rating"
         }).style.format({
-            "Total Sales (₹)": "₹{:,.2f}",
+            "Total Sales ($)": "${:,.2f}",
             "Total Units": "{:,}",
-            "Avg Unit Price (₹)": "₹{:.2f}",
+            "Avg Unit Price ($)": "${:.2f}",
             "Avg Rating": "{:.2f}"
         }),
         use_container_width=True,
@@ -767,7 +870,7 @@ with tabs[2]:
             cust_data["by_type"],
             x_col="Customer Type",
             y_col="Avg_Order_Value",
-            title="Average Order Value (ATV) by Customer Type",
+            title="Average Order Value (AOV) by Customer Type",
             color_col="Customer Type"
         )
         st.plotly_chart(fig_atv, use_container_width=True)
@@ -890,44 +993,491 @@ with tabs[4]:
         st.plotly_chart(fig_type_rating, use_container_width=True)
 
 
-
 # -------------------------------------------------------------
-# TAB 6: KEY BUSINESS INSIGHTS
+# TAB 6: BUSINESS INSIGHTS (4-TIER FRAMEWORK)
 # -------------------------------------------------------------
 with tabs[5]:
-    st.subheader("Empirical Business Findings")
-    st.caption("Verifiable data-driven insights computed strictly from actual transactions without fabrication.")
+    st.subheader("💡 Strategic Business Insights (4-Tier Framework)")
+    st.caption(
+        "Structured retail intelligence mapping empirical data to actionable manager decisions: "
+        "Observation ➔ Analytical Insight ➔ Possible Explanation ➔ Recommended Action."
+    )
 
-    insights = generate_key_insights(df_filtered)
+    col_f1, col_f2 = st.columns([1, 1])
+    with col_f1:
+        ins_categories = ["All"] + sorted(list(set(i["category"] for i in structured_insights)))
+        selected_ins_cat = st.selectbox("Filter Insight Category:", ins_categories, key="ins_cat_filter")
+    with col_f2:
+        ins_priorities = ["All", "Critical", "High", "Medium", "Low"]
+        selected_ins_pri = st.selectbox("Filter Priority Level:", ins_priorities, key="ins_pri_filter")
 
-    for ins in insights:
-        st.markdown(f"""
-        <div class="insight-card">
-            <span class="insight-badge">{ins['category']}</span>
-            <div class="insight-title">{ins['title']}</div>
-            <div class="insight-text">{ins['insight']}</div>
-        </div>
-        """, unsafe_allow_html=True)
+    filtered_insights = structured_insights
+    if selected_ins_cat != "All":
+        filtered_insights = [i for i in filtered_insights if i["category"] == selected_ins_cat]
+    if selected_ins_pri != "All":
+        filtered_insights = [i for i in filtered_insights if i["priority"].upper() == selected_ins_pri.upper()]
 
-    st.markdown("---")
-    st.markdown("### Strategic Recommendations for Store Operations")
-    st.markdown("""
-    1. **Inventory Alignment with Revenue vs Volume**:
-       - High-value categories deliver superior revenue per square foot and require stringent stock availability.
-       - High-volume staple categories should be positioned strategically for basket-building and foot-traffic conversion.
-    2. **Loyalty Program Enhancements**:
-       - Continuously evaluate Member Average Transaction Value relative to Normal shoppers to optimize membership perks, targeted digital discounts, and member-exclusive bundle offers.
-    3. **Payment Terminal Optimization**:
-       - Ensure robust uptime and zero-latency connectivity for top digital payment channels, which represent the largest transaction shares.
-    4. **Quality & Satisfaction Assurance**:
-       - Focus quality assurance audits on categories showing lower average rating variance to maintain brand trust and consistent customer retention.
-    """)
+    if not filtered_insights:
+        st.info("No insights matching the selected category and priority filters.")
+    else:
+        for ins in filtered_insights:
+            pri = ins["priority"].upper()
+            badge_class = (
+                "badge-critical" if pri == "CRITICAL"
+                else ("badge-high" if pri == "HIGH"
+                else ("badge-medium" if pri == "MEDIUM" else "badge-low"))
+            )
+
+            st.markdown(f"""
+            <div class="insight-card-4tier">
+                <div class="insight-header">
+                    <span style="font-size:1.05rem; font-weight:700; color:#f8fafc;">{ins['title']}</span>
+                    <div>
+                        <span class="badge-pill badge-cat">{ins['category']}</span>
+                        <span class="badge-pill {badge_class}">{ins['priority']} Priority</span>
+                    </div>
+                </div>
+                <div class="tier-row">
+                    <span class="tier-label">👁️ Observation:</span>
+                    <span class="tier-obs">{ins['observation']}</span>
+                </div>
+                <div class="tier-row">
+                    <span class="tier-label">📊 Insight:</span>
+                    <span class="tier-ins">{ins['insight']}</span>
+                </div>
+                <div class="tier-row">
+                    <span class="tier-label">❓ Explanation:</span>
+                    <span class="tier-exp">{ins['explanation']}</span>
+                </div>
+                <div class="tier-row">
+                    <span class="tier-label">🎯 Action:</span>
+                    <span class="tier-act">{ins['action']}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
 
 # -------------------------------------------------------------
-# TAB 7: DATA EXPLORER & EXPORT
+# TAB 7: INVENTORY INTELLIGENCE (NEW)
 # -------------------------------------------------------------
 with tabs[6]:
+    st.subheader("📦 Inventory Stock Health & Replenishment Intelligence")
+    st.caption(
+        "Real-time velocity tracking, days-of-stock countdown, and automated reorder triggers "
+        "calculated directly against transactional demand."
+    )
+
+    inv_kpis = get_inventory_summary_kpis(inv_intel_df)
+
+    # Inventory KPI Cards
+    st.markdown(f"""
+    <div class="kpi-grid">
+        <div class="metric-card">
+            <div class="metric-title">Catalog SKUs</div>
+            <div class="metric-value">{inv_kpis['total_products']}</div>
+            <div class="metric-subtitle">Active Products</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-title">Inventory Valuation</div>
+            <div class="metric-value">${inv_kpis['total_stock_value']:,.2f}</div>
+            <div class="metric-subtitle">Holding Value</div>
+        </div>
+        <div class="metric-card" style="border-left: 3px solid #dc2626;">
+            <div class="metric-title" style="color: #f87171;">Out of Stock</div>
+            <div class="metric-value" style="color: #f87171;">{inv_kpis['out_of_stock_count']}</div>
+            <div class="metric-subtitle">Immediate Stockout</div>
+        </div>
+        <div class="metric-card" style="border-left: 3px solid #f59e0b;">
+            <div class="metric-title" style="color: #fbbf24;">Low Stock Alerts</div>
+            <div class="metric-value" style="color: #fbbf24;">{inv_kpis['low_stock_count']}</div>
+            <div class="metric-subtitle">Below Safety Stock</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-title">Est. Reorder Cost</div>
+            <div class="metric-value">${inv_kpis['total_reorder_cost']:,.2f}</div>
+            <div class="metric-subtitle">Replenishment Budget</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col_inv_f1, col_inv_f2 = st.columns(2)
+    with col_inv_f1:
+        health_opts = ["All", "Out of Stock", "Low Stock", "Healthy", "Overstocked"]
+        sel_health = st.selectbox("Filter Stock Health:", health_opts, key="inv_health_filter")
+    with col_inv_f2:
+        vel_opts = ["All", "Fast Moving", "Normal Moving", "Slow Moving", "Non-Moving"]
+        sel_vel = st.selectbox("Filter Velocity Tier:", vel_opts, key="inv_vel_filter")
+
+    display_inv_df = inv_intel_df.copy()
+    if sel_health != "All":
+        display_inv_df = display_inv_df[display_inv_df["health_status"] == sel_health]
+    if sel_vel != "All":
+        display_inv_df = display_inv_df[display_inv_df["velocity_tier"] == sel_vel]
+
+    st.markdown("#### SKU Health & Velocity Table")
+    st.dataframe(
+        display_inv_df[[
+            "product_name", "category_name", "current_stock", "safety_stock_level",
+            "daily_sales_velocity", "days_of_stock_remaining", "velocity_tier",
+            "health_status", "recommended_reorder_qty", "estimated_reorder_cost"
+        ]].rename(columns={
+            "product_name": "Product Name",
+            "category_name": "Category",
+            "current_stock": "Current Stock",
+            "safety_stock_level": "Safety Stock",
+            "daily_sales_velocity": "Daily Velocity (Units/d)",
+            "days_of_stock_remaining": "Days Remaining",
+            "velocity_tier": "Velocity Tier",
+            "health_status": "Health Status",
+            "recommended_reorder_qty": "Reorder Qty",
+            "estimated_reorder_cost": "Est Reorder Cost ($)",
+        }).style.format({
+            "Current Stock": "{:,}",
+            "Safety Stock": "{:,}",
+            "Daily Velocity (Units/d)": "{:.2f}",
+            "Days Remaining": "{:.1f}",
+            "Reorder Qty": "{:,}",
+            "Est Reorder Cost ($)": "${:,.2f}"
+        }),
+        use_container_width=True,
+        hide_index=True
+    )
+
+    st.markdown("---")
+    col_act1, col_act2 = st.columns(2)
+    with col_act1:
+        st.markdown("#### 📥 Receive New Stock Shipment")
+        st.caption("Record incoming stock delivery from suppliers into the inventory ledger:")
+        products_list = get_all_products()
+        prod_names = [p["product_name"] for p in products_list]
+        selected_prod_for_rcv = st.selectbox("Select Product to Receive:", prod_names, key="rcv_prod_sel")
+        rcv_qty = st.number_input("Shipment Quantity (Units):", min_value=1, max_value=1000, value=25, key="rcv_qty_input")
+        if st.button("📦 Confirm Stock Receipt", use_container_width=True):
+            target_prod = next((p for p in products_list if p["product_name"] == selected_prod_for_rcv), None)
+            if target_prod:
+                res = record_stock_movement(
+                    product_id=target_prod["product_id"],
+                    movement_type="receipt",
+                    quantity_change=rcv_qty,
+                    reference_reason="Supplier purchase order delivery"
+                )
+                if res["success"]:
+                    st.success(f"Successfully received {rcv_qty} units of '{selected_prod_for_rcv}'! New stock balance: {res['new_stock_level']}.")
+                    st.rerun()
+                else:
+                    st.error(f"Stock receipt failed: {res.get('error')}")
+
+    with col_act2:
+        st.markdown("#### 🔄 Reconcile Sales Against Inventory")
+        st.caption("Decoupled batch ledger reconciliation deducting sold quantities while preventing negative stock overdrafts:")
+        if st.button("⚖️ Run Batch Sales Deduction Simulation", use_container_width=True):
+            rec_result = reconcile_sales_deduction(df_filtered)
+            if rec_result["status"] == "success":
+                st.success(f"Reconciled {rec_result['products_reconciled']} products! Total units deducted from warehouse ledger: {rec_result['total_units_deducted']:,}.")
+                st.rerun()
+            else:
+                st.error(f"Reconciliation error: {rec_result.get('error')}")
+
+
+# -------------------------------------------------------------
+# TAB 8: ANOMALY DETECTION (NEW)
+# -------------------------------------------------------------
+with tabs[7]:
+    st.subheader("🚨 Automated Anomaly & Data Quality Engine")
+    st.caption(
+        "Dual-layer detection: Deterministic business rules (arithmetic mismatches, negative quantities, "
+        "corrupted ratings) combined with statistical distribution models (Tukey's IQR method & temporal surge analysis)."
+    )
+
+    # Anomaly KPI Cards
+    st.markdown(f"""
+    <div class="kpi-grid">
+        <div class="metric-card">
+            <div class="metric-title">Total Anomalies</div>
+            <div class="metric-value">{anomaly_summary['total_anomalies']}</div>
+            <div class="metric-subtitle">Flagged Issues</div>
+        </div>
+        <div class="metric-card" style="border-left: 3px solid #dc2626;">
+            <div class="metric-title" style="color: #f87171;">Critical</div>
+            <div class="metric-value" style="color: #f87171;">{anomaly_summary['by_severity'].get('CRITICAL', 0)}</div>
+            <div class="metric-subtitle">Severe Violations</div>
+        </div>
+        <div class="metric-card" style="border-left: 3px solid #ea580c;">
+            <div class="metric-title" style="color: #fb923c;">High</div>
+            <div class="metric-value" style="color: #fb923c;">{anomaly_summary['by_severity'].get('HIGH', 0)}</div>
+            <div class="metric-subtitle">Statistical Outliers</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-title">Medium / Low</div>
+            <div class="metric-value">{anomaly_summary['by_severity'].get('MEDIUM', 0) + anomaly_summary['by_severity'].get('LOW', 0)}</div>
+            <div class="metric-subtitle">Warnings & Audits</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if detected_anomalies:
+        col_anom_btn1, col_anom_btn2 = st.columns([1, 1])
+        with col_anom_btn1:
+            if st.button("💾 Persist Detected Anomalies to SQLite Audit Log", use_container_width=True):
+                logged_count = log_anomalies_to_db(detected_anomalies)
+                st.success(f"Persisted {logged_count} anomaly records to the relational database!")
+
+        st.markdown("#### Detected Anomalies List")
+        anom_table_data = []
+        for a in detected_anomalies:
+            anom_table_data.append({
+                "Invoice ID": a.get("invoice_id", "N/A"),
+                "Error Type": a.get("error_type", ""),
+                "Severity": a.get("severity", ""),
+                "Affected Field": a.get("affected_field", ""),
+                "Recorded": a.get("recorded_value", ""),
+                "Expected": a.get("expected_value", ""),
+                "Description": a.get("description", ""),
+                "Recommended Action": a.get("action_recommendation", ""),
+            })
+        st.dataframe(pd.DataFrame(anom_table_data), use_container_width=True, hide_index=True)
+    else:
+        st.success("✅ **Clean Data Audit:** No deterministic math discrepancies or statistical anomalies were detected in the active dataset view.")
+
+    st.markdown("---")
+    st.markdown("#### 🗄️ Relational Database Anomaly Audit Trail")
+    db_anomalies = get_anomalies_from_db(status="OPEN")
+    if db_anomalies:
+        st.caption(f"Currently tracking {len(db_anomalies)} open anomalies in the SQLite database:")
+        st.dataframe(pd.DataFrame(db_anomalies), use_container_width=True, hide_index=True)
+
+        col_res1, col_res2 = st.columns([2, 1])
+        with col_res1:
+            anom_ids = [a["anomaly_id"] for a in db_anomalies]
+            selected_anom_id = st.selectbox("Select Anomaly ID to Mark Resolved:", anom_ids, key="resolve_anom_sel")
+            res_notes = st.text_input("Resolution Notes:", value="Verified corrected transaction via store manager", key="res_notes_input")
+        with col_res2:
+            st.write("")
+            st.write("")
+            if st.button("✅ Mark Anomaly Resolved", use_container_width=True):
+                ok = resolve_anomaly_in_db(selected_anom_id, resolution_notes=res_notes)
+                if ok:
+                    st.success(f"Anomaly #{selected_anom_id} marked as RESOLVED.")
+                    st.rerun()
+    else:
+        st.info("Zero open anomalies currently pending in the SQLite database.")
+
+
+# -------------------------------------------------------------
+# TAB 9: REPORT CENTER (NEW)
+# -------------------------------------------------------------
+with tabs[8]:
+    st.subheader("📄 Executive Report Center")
+    st.caption(
+        "Generate and download publication-ready executive briefings and comprehensive workbooks "
+        "incorporating active filters, financial KPIs, 4-tier business insights, and inventory status."
+    )
+
+    col_rep1, col_rep2, col_rep3 = st.columns(3)
+
+    # 1. PDF Briefing
+    with col_rep1:
+        st.markdown("""
+        <div class="report-export-box">
+            <h4 style="color:#38bdf8; margin-top:0;">📑 Executive PDF Briefing</h4>
+            <p style="font-size:0.84rem; color:#cbd5e1;">
+                Publication-ready PDF document built with ReportLab Flowable architecture, dynamic page budgeting,
+                4-tier strategic recommendations, and high-contrast tables.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        try:
+            pdf_buf = generate_pdf_report(
+                df=df_filtered,
+                dataset_name=active_dataset_name,
+                filter_summary=active_filter_summary,
+                insights=structured_insights,
+                anomalies=detected_anomalies,
+                inventory_df=inv_intel_df
+            )
+            st.download_button(
+                label="📥 Download Executive PDF Briefing",
+                data=pdf_buf.getvalue(),
+                file_name=f"Executive_Sales_Report_{datetime.date.today()}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+                on_click=lambda: log_report_generation(
+                    report_type="PDF",
+                    dataset_scope=active_dataset_name,
+                    filter_summary_json=str(active_filter_summary),
+                    total_sales_analyzed=float(kpis["total_sales"]),
+                    total_transactions=int(kpis["total_transactions"])
+                )
+            )
+        except Exception as ex:
+            st.error(f"Error compiling PDF: {ex}")
+
+    # 2. Multi-Sheet Excel Workbook
+    with col_rep2:
+        st.markdown("""
+        <div class="report-export-box">
+            <h4 style="color:#4ade80; margin-top:0;">📊 Multi-Sheet Excel Report</h4>
+            <p style="font-size:0.84rem; color:#cbd5e1;">
+                Enterprise-grade workbook with 7 styled sheets: Executive Summary, Transactions, Products, Categories,
+                Inventory Intelligence, Anomaly Log, and Insights Matrix.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        try:
+            excel_buf = generate_excel_workbook(
+                df=df_filtered,
+                dataset_name=active_dataset_name,
+                filter_summary=active_filter_summary,
+                insights=structured_insights,
+                anomalies=detected_anomalies,
+                inventory_df=inv_intel_df
+            )
+            st.download_button(
+                label="📊 Download Excel Workbook (.xlsx)",
+                data=excel_buf.getvalue(),
+                file_name=f"Supermarket_Intelligence_Report_{datetime.date.today()}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                on_click=lambda: log_report_generation(
+                    report_type="Excel",
+                    dataset_scope=active_dataset_name,
+                    filter_summary_json=str(active_filter_summary),
+                    total_sales_analyzed=float(kpis["total_sales"]),
+                    total_transactions=int(kpis["total_transactions"])
+                )
+            )
+        except Exception as ex:
+            st.error(f"Error compiling Excel: {ex}")
+
+    # 3. Filtered Raw CSV
+    with col_rep3:
+        st.markdown("""
+        <div class="report-export-box">
+            <h4 style="color:#fbbf24; margin-top:0;">📄 Filtered Dataset CSV</h4>
+            <p style="font-size:0.84rem; color:#cbd5e1;">
+                Export active filtered transaction data formatted as an RFC-4180 compliant CSV for downstream data modeling,
+                R scripts, or external BI tools.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        csv_str = generate_csv_export(df_filtered)
+        st.download_button(
+            label="📄 Download Filtered CSV",
+            data=csv_str.encode("utf-8"),
+            file_name=f"Filtered_Transactions_{datetime.date.today()}.csv",
+            mime="text/csv",
+            use_container_width=True,
+            on_click=lambda: log_report_generation(
+                report_type="CSV",
+                dataset_scope=active_dataset_name,
+                filter_summary_json=str(active_filter_summary),
+                total_sales_analyzed=float(kpis["total_sales"]),
+                total_transactions=int(kpis["total_transactions"])
+            )
+        )
+
+    st.markdown("---")
+    st.markdown("#### 📜 Report Generation History (SQLite Audit)")
+    rep_history = get_report_history(limit=10)
+    if rep_history:
+        st.dataframe(pd.DataFrame(rep_history), use_container_width=True, hide_index=True)
+    else:
+        st.info("No report generation events logged yet.")
+
+
+# -------------------------------------------------------------
+# TAB 10: DATABASE & CRUD (NEW - CAPSTONE SHOWCASE)
+# -------------------------------------------------------------
+with tabs[9]:
+    st.subheader("🗄️ Relational Database & Master Data Operations")
+    st.caption(
+        "Demonstrates relational DBMS principles (ACID transactions, foreign key integrity, "
+        "and double-entry inventory ledger accounting) implemented in Python's built-in sqlite3."
+    )
+
+    db_crud_choice = st.radio(
+        "Database Management Area:",
+        ["Product Catalog CRUD", "Inventory Ledger Audit", "Database Health & Factory Reset"],
+        horizontal=True
+    )
+
+    if db_crud_choice == "Product Catalog CRUD":
+        st.markdown("#### Master Product Catalog")
+        all_prods = get_all_products()
+        if all_prods:
+            st.dataframe(pd.DataFrame(all_prods), use_container_width=True, hide_index=True)
+
+        col_prod_add, col_prod_upd = st.columns(2)
+        with col_prod_add:
+            with st.expander("➕ Add New Product SKU", expanded=False):
+                new_sku = st.text_input("Product SKU Code:", value="SKU-NEW-01", key="add_sku")
+                new_name = st.text_input("Product Name:", value="Premium Greek Yogurt", key="add_name")
+                cats = get_all_categories()
+                cat_choices = {c["category_name"]: c["category_id"] for c in cats}
+                sel_cat_name = st.selectbox("Category:", list(cat_choices.keys()), key="add_cat")
+                new_cost = st.number_input("Unit Cost ($):", min_value=0.01, value=5.0, step=0.5, key="add_cost")
+                new_price = st.number_input("Selling Price ($):", min_value=0.01, value=9.5, step=0.5, key="add_price")
+                new_safety = st.number_input("Safety Stock Level:", min_value=1, value=20, key="add_safety")
+                new_stock = st.number_input("Initial Warehouse Stock:", min_value=0, value=60, key="add_stock")
+
+                if st.button("Save New Product", use_container_width=True):
+                    pid = create_product(
+                        sku=new_sku,
+                        name=new_name,
+                        category_id=cat_choices[sel_cat_name],
+                        unit_cost=new_cost,
+                        selling_price=new_price,
+                        safety_stock=new_safety,
+                        initial_stock=new_stock
+                    )
+                    st.success(f"Product created successfully with ID #{pid}!")
+                    st.rerun()
+
+        with col_prod_upd:
+            with st.expander("✏️ Update Product Pricing or Stock Thresholds", expanded=False):
+                if all_prods:
+                    prod_map = {f"{p['product_name']} ({p['product_sku']})": p for p in all_prods}
+                    sel_p_label = st.selectbox("Select Product to Update:", list(prod_map.keys()), key="upd_p_sel")
+                    target = prod_map[sel_p_label]
+
+                    upd_price = st.number_input("New Selling Price ($):", value=float(target["selling_price"]), key="upd_price")
+                    upd_safety = st.number_input("New Safety Stock:", value=int(target["safety_stock_level"]), key="upd_safety")
+                    upd_active = st.checkbox("Active Status", value=bool(target["is_active"]), key="upd_active")
+
+                    if st.button("Update Product Details", use_container_width=True):
+                        ok = update_product(
+                            product_id=target["product_id"],
+                            selling_price=upd_price,
+                            safety_stock_level=upd_safety,
+                            is_active=1 if upd_active else 0
+                        )
+                        if ok:
+                            st.success(f"Updated product '{target['product_name']}'!")
+                            st.rerun()
+
+    elif db_crud_choice == "Inventory Ledger Audit":
+        st.markdown("#### Append-Only Inventory Ledger (`inventory_movements`)")
+        st.caption("Immutable transaction history preventing phantom inventory or unauthorized stock balances:")
+        movements = get_inventory_movements(limit=50)
+        if movements:
+            st.dataframe(pd.DataFrame(movements), use_container_width=True, hide_index=True)
+        else:
+            st.info("No stock movement events recorded in the ledger yet.")
+
+    else:
+        st.markdown("#### 🔄 Database Maintenance & Reset")
+        st.warning("Re-seeding will restore the SQLite database back to the factory 500 baseline transaction records and baseline SKU catalog.")
+        if st.button("⚠️ Reset / Re-seed SQLite Database to Factory Baseline", use_container_width=False):
+            # Purge and re-seed
+            seed_database_if_empty(force_reseed=True)
+            st.success("Database successfully reset and seeded with baseline retail catalog and 500 sales transactions!")
+            st.rerun()
+
+
+# -------------------------------------------------------------
+# TAB 11: DATA EXPLORER & EXPORT
+# -------------------------------------------------------------
+with tabs[10]:
     st.subheader("Filtered Dataset Explorer")
     st.caption(f"Showing {len(df_filtered):,} filtered records out of {len(df_full):,} total transactions.")
 

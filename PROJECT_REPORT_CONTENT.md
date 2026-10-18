@@ -27,10 +27,11 @@
 15. Dashboard Architecture & Interactive Development
 16. Results & Empirical Findings
 17. Key Business Insights & Strategic Recommendations
-18. Limitations of Study
-19. Future Scope
-20. Conclusion
-21. References
+18. Full-Stack System Architecture: Relational SQLite Storage, Inventory Ledger & Anomaly Detection
+19. Limitations of Study
+20. Future Scope
+21. Conclusion
+22. References
 
 ---
 
@@ -401,7 +402,31 @@ The interactive dashboard was built using Streamlit in `app.py`:
 
 ---
 
-## 18. Limitations of Study
+## 18. Full-Stack System Architecture: Relational SQLite Storage, Inventory Ledger & Anomaly Detection
+
+### 18.1 Persistent Relational Database (SQLite)
+To transition from a static dashboard into an enterprise retail intelligence application, the system incorporates Python's built-in `sqlite3` database engine with foreign key enforcement (`PRAGMA foreign_keys = ON;`). The normalized schema comprises 7 tables:
+- `categories`: Merchandise group metadata.
+- `products`: SKU-level catalog with unit cost, selling price, and safety stock thresholds.
+- `inventory_stock`: Current warehouse inventory with auto-reorder points.
+- `inventory_movements`: Append-only, double-entry inventory ledger preventing negative overdrafts.
+- `sales_transactions`: Permanent transaction records with branch, customer demographic, and product references.
+- `anomaly_records`: Persistent audit log of detected arithmetic discrepancies and statistical anomalies.
+- `report_history`: Log tracking generated PDF and Excel briefing exports.
+
+### 18.2 Inventory Velocity & Automated Replenishment
+The system calculates daily sales velocity ($V = \frac{\sum Q}{\text{Days}}$) and days of stock remaining ($D = \frac{\text{Current Stock}}{V}$). Items are classified into velocity tiers (Fast, Normal, Slow, Non-Moving) and health statuses (Healthy, Low Stock, Out of Stock, Overstocked). When stock drops below safety stock levels, the engine automatically calculates recommended reorder quantities and estimated replenishment budgets.
+
+### 18.3 Dual-Layer Anomaly Detection
+1. **Deterministic Layer**: Verifies arithmetic integrity ($\text{Sales} = \text{Quantity} \times \text{Unit Price}$), bounds on customer satisfaction ratings ($1.0 \le \text{Rating} \le 5.0$), positive physical quantities, and unique invoice numbers.
+2. **Statistical Layer**: Evaluates transaction amounts using Tukey's Interquartile Range rule ($IQR = Q_3 - Q_1$, Upper Threshold $= Q_3 + 1.5 \times IQR$) with $N \ge 15$ minimum sample protection, alongside temporal rolling standard deviation surge monitoring ($> 2.5\sigma$).
+
+### 18.4 Executive Reporting Engine
+Using ReportLab's flowable architecture and a dynamic two-pass `NumberedCanvas`, the system produces formatted executive PDF briefings with dynamic page budgeting. Additionally, `openpyxl` compiles comprehensive 7-sheet formatted Excel workbooks containing executive summaries, filtered transactions, SKU performance, category metrics, inventory intelligence, anomaly audit trails, and structured 4-tier business insights.
+
+---
+
+## 19. Limitations of Study
 
 1. **Absence of Cost and Margin Variables**: The raw dataset contains only Unit Price and Sales. Cost of Goods Sold (COGS), operating expenses, and net profit margins are not recorded. Any calculation of profitability would be speculative and was deliberately avoided.
 2. **Lack of Intraday Timestamps**: Transactions provide purchase dates but omit time-of-day records (hours/minutes), precluding morning vs. evening rush-hour staffing analysis.
@@ -409,7 +434,7 @@ The interactive dashboard was built using Streamlit in `app.py`:
 
 ---
 
-## 19. Future Scope
+## 20. Future Scope
 
 1. **Predictive Time-Series Forecasting**: Deploy automated machine learning (ARIMA/Prophet) to forecast monthly demand by category.
 2. **Market Basket Association Mining**: With transaction data expanded to multi-item checkouts, implement the Apriori algorithm to identify itemset affinities.
@@ -417,13 +442,13 @@ The interactive dashboard was built using Streamlit in `app.py`:
 
 ---
 
-## 20. Conclusion
+## 21. Conclusion
 
 The **Supermarket Sales & Customer Analytics Dashboard** project successfully demonstrates practical, portfolio-grade Data Analyst competencies. Through rigorous data parsing, 100% mathematical integrity validation, modular Python engineering, and an intuitive Streamlit dashboard, raw supermarket records were transformed into actionable business intelligence. The resulting solution equips retail managers with the empirical tools necessary to make data-driven decisions on inventory, loyalty incentives, and operational execution.
 
 ---
 
-## 21. References
+## 22. References
 
 1. McKinney, W. (2022). *Python for Data Analysis: Data Wrangling with pandas, NumPy, and Jupyter* (3rd ed.). O'Reilly Media.
 2. Streamlit Inc. (2024). *Streamlit Documentation: Building Interactive Web Applications with Python*. https://docs.streamlit.io
