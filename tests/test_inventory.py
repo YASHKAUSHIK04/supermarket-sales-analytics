@@ -266,6 +266,55 @@ class TestInventoryIntelligence(unittest.TestCase):
         self.assertIsInstance(intel_df, pd.DataFrame)
         self.assertGreater(len(intel_df), 0)
 
+    def test_calculate_inventory_intelligence_valid_products_and_sales_dfs(self):
+        """Regression test: call calculate_inventory_intelligence with valid product and sales DataFrames."""
+        prods_df = get_products_df(active_only=True, db_path=self.db_path)
+        self.assertGreater(len(prods_df), 0)
+        self.assertIn("Product Name", prods_df.columns)
+        self.assertIn("Current Stock", prods_df.columns)
+
+        intel_df = calculate_inventory_intelligence(
+            products_df=prods_df,
+            sales_df=self.mock_sales,
+            lookback_days=30
+        )
+        self.assertIsInstance(intel_df, pd.DataFrame)
+        self.assertEqual(len(intel_df), len(prods_df))
+        self.assertIn("daily_sales_velocity", intel_df.columns)
+        self.assertIn("health_status", intel_df.columns)
+        self.assertIn("recommended_reorder_qty", intel_df.columns)
+
+    def test_calculate_inventory_intelligence_empty_product_table(self):
+        """Regression test: call calculate_inventory_intelligence when the product table is empty/uninitialized."""
+        # Test 1: Passing explicit empty products DataFrame
+        empty_prods = pd.DataFrame()
+        intel_from_df = calculate_inventory_intelligence(
+            products_df=empty_prods,
+            sales_df=self.mock_sales
+        )
+        self.assertIsInstance(intel_from_df, pd.DataFrame)
+        self.assertTrue(intel_from_df.empty)
+        self.assertIn("product_name", intel_from_df.columns)
+        self.assertIn("Product Name", intel_from_df.columns)
+
+        # Test 2: In an isolated SQLite DB with initialized schema but 0 products
+        empty_db_path = self.test_dir / "empty_catalog_test.db"
+        if empty_db_path.exists():
+            empty_db_path.unlink()
+        from src.database import init_database
+        init_database(empty_db_path)
+        empty_catalog_prods = get_products_df(active_only=True, db_path=empty_db_path)
+        self.assertEqual(len(empty_catalog_prods), 0)
+
+        intel_from_db = calculate_inventory_intelligence(
+            products_df=empty_catalog_prods,
+            sales_df=self.mock_sales,
+            db_path=empty_db_path
+        )
+        self.assertIsInstance(intel_from_db, pd.DataFrame)
+        self.assertTrue(intel_from_db.empty)
+        self.assertIn("product_name", intel_from_db.columns)
+
 
 if __name__ == "__main__":
     unittest.main()

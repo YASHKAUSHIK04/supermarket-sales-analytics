@@ -63,6 +63,7 @@ from src.database import (
     seed_database_if_empty,
     get_sales_dataframe,
     import_sales_dataframe,
+    get_products_df,
     get_all_products,
     create_product,
     update_product,
@@ -702,13 +703,22 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 
+# Load physical product catalog from SQLite relational database
+try:
+    products_catalog_df = get_products_df(active_only=True)
+except Exception:
+    products_catalog_df = pd.DataFrame()
+
 # Pre-compute Inventory Intelligence, Anomalies & 4-Tier Insights
-inv_intel_df = calculate_inventory_intelligence(sales_df=df_filtered)
+inv_intel_df = calculate_inventory_intelligence(
+    products_df=products_catalog_df,
+    sales_df=df_filtered
+)
 detected_anomalies = detect_anomalies(df_filtered)
 anomaly_summary = get_anomaly_summary(detected_anomalies)
 structured_insights = generate_structured_business_insights(
     df_filtered,
-    inventory_intelligence_df=inv_intel_df
+    inventory_df=inv_intel_df
 )
 
 
@@ -1068,14 +1078,22 @@ with tabs[6]:
     )
 
     if inv_intel_df is None or inv_intel_df.empty:
-        st.info(
-            "ℹ️ **Inventory Records Unavailable for this Sales Dataset**\n\n"
-            "The active sales dataset contains products that are not currently tracked in the inventory catalog, "
-            "or no inventory records have been initialized in the database.\n\n"
-            "• **SQLite Database**: Ensure the database is initialized and seeded via the **🗄️ Database & CRUD** tab.\n"
-            "• **Uploaded Datasets**: Register custom products in the **🗄️ Database & CRUD** tab or ingest the dataset into the SQLite database to link sales with inventory.\n\n"
-            "*(In accordance with retail data auditing standards, stock levels are verified against actual physical catalog records and never artificially invented.)*"
-        )
+        if products_catalog_df is None or products_catalog_df.empty:
+            st.warning(
+                "⚠️ **Inventory Catalog Empty or Uninitialized**\n\n"
+                "The product inventory database is currently empty or has not been initialized.\n\n"
+                "• **Initialization Required**: Navigate to the **🗄️ Database & CRUD** tab to seed baseline products or create new catalog items.\n"
+                "• Once products are created or seeded, inventory health and replenishment intelligence will automatically calculate.\n\n"
+                "*(The rest of the dashboard remains fully operational.)*"
+            )
+        else:
+            st.info(
+                "ℹ️ **Inventory Records Unavailable for this Sales Dataset**\n\n"
+                "The active sales dataset contains products that are not currently tracked in the inventory catalog.\n\n"
+                "• **SQLite Database**: Ensure the active sales products match catalog SKUs.\n"
+                "• **Uploaded Datasets**: Register custom products in the **🗄️ Database & CRUD** tab or ingest the dataset into the SQLite database to link sales with inventory.\n\n"
+                "*(In accordance with retail data auditing standards, stock levels are verified against actual physical catalog records and never artificially invented.)*"
+            )
     else:
         inv_kpis = get_inventory_summary_kpis(inv_intel_df)
 
