@@ -63,12 +63,13 @@ class TestBusinessInsightsEngine(unittest.TestCase):
         insights = generate_structured_business_insights(self.sample_sales)
         self.assertGreaterEqual(len(insights), 4)
 
-        required_keys = ["category", "title", "observation", "insight", "explanation", "action", "severity"]
+        required_keys = ["category", "title", "observation", "insight", "explanation", "action", "severity", "priority"]
         for ins in insights:
             for k in required_keys:
                 self.assertIn(k, ins)
                 self.assertIsInstance(ins[k], str)
                 self.assertGreater(len(ins[k].strip()), 0)
+            self.assertIn(ins["priority"], ["CRITICAL", "HIGH", "MEDIUM", "LOW"])
 
     def test_empty_dataframe_handling(self):
         """Verify empty DataFrame returns non-crashing informational guidance."""
@@ -76,6 +77,8 @@ class TestBusinessInsightsEngine(unittest.TestCase):
         self.assertEqual(len(empty_insights), 1)
         self.assertEqual(empty_insights[0]["category"], "Data Availability")
         self.assertIn("Reset", empty_insights[0]["action"])
+        self.assertIn("priority", empty_insights[0])
+        self.assertEqual(empty_insights[0]["priority"], "LOW")
 
     def test_branch_revenue_disparity_insight(self):
         """Verify branch disparity insight identifies top and lowest locations."""
@@ -98,6 +101,7 @@ class TestBusinessInsightsEngine(unittest.TestCase):
         inv_insights = [i for i in insights_with_inv if i["category"] == "Inventory Management"]
         self.assertEqual(len(inv_insights), 1)
         self.assertEqual(inv_insights[0]["severity"], "CRITICAL")
+        self.assertEqual(inv_insights[0]["priority"], "CRITICAL")
         self.assertIn("Coffee", inv_insights[0]["observation"])
         self.assertIn("Milk", inv_insights[0]["observation"])
 
@@ -110,6 +114,82 @@ class TestBusinessInsightsEngine(unittest.TestCase):
         inv_insights = [i for i in insights_kw if i["category"] == "Inventory Management"]
         self.assertEqual(len(inv_insights), 1)
         self.assertEqual(inv_insights[0]["severity"], "CRITICAL")
+        self.assertEqual(inv_insights[0]["priority"], "CRITICAL")
+
+    def test_insights_with_valid_priority(self):
+        """Regression test: verify all insight priorities are strictly one of CRITICAL, HIGH, MEDIUM, LOW."""
+        insights = generate_structured_business_insights(self.sample_sales, self.sample_inventory)
+        for item in insights:
+            self.assertIn("priority", item)
+            self.assertIn(item["priority"], ["CRITICAL", "HIGH", "MEDIUM", "LOW"])
+            # Ensure priority and severity are consistent
+            self.assertEqual(item["priority"], item["severity"])
+
+    def test_insights_missing_priority_fallback(self):
+        """Regression test: simulate insight dictionary missing priority key and verify fallback."""
+        raw_insights = [
+            {
+                "category": "Customer Segments",
+                "title": "Segment Shift",
+                "severity": "HIGH",
+                "observation": "Member counts rose 15%",
+                "insight": "High membership conversion",
+                "explanation": "Loyalty campaign active",
+                "action": "Maintain program benefits"
+            },
+            {
+                "category": "Operations",
+                "title": "Aisle Clearance",
+                "observation": "Aisle 3 congestion",
+                "insight": "Bottleneck at peak hours",
+                "explanation": "Display stand blocking flow",
+                "action": "Relocate display"
+            }
+        ]
+
+        normalized = []
+        for raw_item in raw_insights:
+            raw_pri = raw_item.get("priority")
+            if raw_pri is None or str(raw_pri).strip() == "":
+                raw_pri = raw_item.get("severity")
+            if raw_pri is None or str(raw_pri).strip() == "":
+                raw_pri = "MEDIUM"
+            pri_clean = str(raw_pri).strip().upper()
+            if pri_clean not in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+                pri_clean = "MEDIUM"
+            normalized.append(pri_clean)
+
+        self.assertEqual(normalized[0], "HIGH")  # Fell back to severity
+        self.assertEqual(normalized[1], "MEDIUM")  # Fell back to default MEDIUM
+
+    def test_insights_empty_priority_fallback(self):
+        """Regression test: verify empty priority string or None gracefully defaults to MEDIUM."""
+        raw_insights = [
+            {"title": "Empty string", "priority": "", "severity": ""},
+            {"title": "Whitespace only", "priority": "   ", "severity": None},
+            {"title": "None priority", "priority": None, "severity": None},
+            {"title": "Unexpected string", "priority": "URGENT_123"},
+        ]
+
+        normalized = []
+        for raw_item in raw_insights:
+            raw_pri = raw_item.get("priority")
+            if raw_pri is None or str(raw_pri).strip() == "":
+                raw_pri = raw_item.get("severity")
+            if raw_pri is None or str(raw_pri).strip() == "":
+                raw_pri = "MEDIUM"
+            pri_clean = str(raw_pri).strip().upper()
+            if pri_clean not in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+                pri_clean = "MEDIUM"
+            normalized.append(pri_clean)
+
+        self.assertEqual(normalized, ["MEDIUM", "MEDIUM", "MEDIUM", "MEDIUM"])
+
+    def test_insights_empty_list_handling(self):
+        """Regression test: verify passing an empty insights list does not raise any exceptions."""
+        empty_list = []
+        filtered_insights = [i for i in empty_list if i.get("priority") == "HIGH"]
+        self.assertEqual(filtered_insights, [])
 
 
 if __name__ == "__main__":

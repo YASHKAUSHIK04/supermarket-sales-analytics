@@ -56,6 +56,8 @@ def generate_structured_business_insights(
             "insight": "Business metrics cannot be computed without underlying transaction data.",
             "explanation": "Active filters (Date, Branch, Category, etc.) may be mutually exclusive.",
             "action": "Reset or broaden sidebar filters to inspect retail performance.",
+            "recommendation": "Reset or broaden sidebar filters to inspect retail performance.",
+            "priority": "LOW",
             "severity": "LOW"
         })
         return insights
@@ -96,6 +98,11 @@ def generate_structured_business_insights(
                     f"Audit inventory assortment and promotional banners at {low_b['Branch']}. Replicate top-selling "
                     f"merchandise bundles proven in {top_b['Branch']} to elevate lower-volume locations."
                 ),
+                "recommendation": (
+                    f"Audit inventory assortment and promotional banners at {low_b['Branch']}. Replicate top-selling "
+                    f"merchandise bundles proven in {top_b['Branch']} to elevate lower-volume locations."
+                ),
+                "priority": "MEDIUM",
                 "severity": "MEDIUM"
             })
 
@@ -133,6 +140,11 @@ def generate_structured_business_insights(
                     f"Ensure 100% in-stock availability for '{top_rev_cat}' to prevent high-ticket sales leakage. "
                     f"Use '{top_vol_cat}' items as loss-leaders placed at back of store to drive customer traversal."
                 ),
+                "recommendation": (
+                    f"Ensure 100% in-stock availability for '{top_rev_cat}' to prevent high-ticket sales leakage. "
+                    f"Use '{top_vol_cat}' items as loss-leaders placed at back of store to drive customer traversal."
+                ),
+                "priority": "HIGH",
                 "severity": "HIGH"
             })
 
@@ -172,6 +184,11 @@ def generate_structured_business_insights(
                     "Introduce spend-threshold bonus rewards (e.g. 'Spend ₹600 to receive 100 bonus loyalty points') "
                     "to expand Member Average Transaction Value beyond baseline levels."
                 ),
+                "recommendation": (
+                    "Introduce spend-threshold bonus rewards (e.g. 'Spend ₹600 to receive 100 bonus loyalty points') "
+                    "to expand Member Average Transaction Value beyond baseline levels."
+                ),
+                "priority": "MEDIUM",
                 "severity": "MEDIUM"
             })
 
@@ -205,6 +222,11 @@ def generate_structured_business_insights(
                     "Equip all checkout counters with dedicated QR scanners and redundant backup internet links to "
                     "prevent checkout congestion during peak evening transaction hours."
                 ),
+                "recommendation": (
+                    "Equip all checkout counters with dedicated QR scanners and redundant backup internet links to "
+                    "prevent checkout congestion during peak evening transaction hours."
+                ),
+                "priority": "LOW",
                 "severity": "LOW"
             })
 
@@ -239,6 +261,11 @@ def generate_structured_business_insights(
                     f"Conduct supplier quality inspections and shorten shelf-rotation cycles for '{lowest_rated}' products. "
                     "Engage checkout cashiers to solicit direct feedback when customers purchase lower-rated items."
                 ),
+                "recommendation": (
+                    f"Conduct supplier quality inspections and shorten shelf-rotation cycles for '{lowest_rated}' products. "
+                    "Engage checkout cashiers to solicit direct feedback when customers purchase lower-rated items."
+                ),
+                "priority": "MEDIUM",
                 "severity": "MEDIUM"
             })
 
@@ -277,7 +304,27 @@ def generate_structured_business_insights(
                     "Issue expedited purchase orders for critical SKUs. Re-evaluate reorder thresholds from 20 to 30 units "
                     "for high-velocity items."
                 ),
+                "recommendation": (
+                    "Issue expedited purchase orders for critical SKUs. Re-evaluate reorder thresholds from 20 to 30 units "
+                    "for high-velocity items."
+                ),
+                "priority": "CRITICAL",
                 "severity": "CRITICAL"
             })
+
+    # -------------------------------------------------------------
+    # 7. Final Normalization Pass
+    # -------------------------------------------------------------
+    for item in insights:
+        raw_pri = item.get("priority") or item.get("severity") or "MEDIUM"
+        norm_pri = str(raw_pri).strip().upper()
+        if norm_pri not in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+            norm_pri = "MEDIUM"
+        item["priority"] = norm_pri
+        item["severity"] = norm_pri
+
+        if "action" not in item or not item["action"]:
+            item["action"] = item.get("recommendation", "Review operational metrics.")
+        item["recommendation"] = item["action"]
 
     return insights

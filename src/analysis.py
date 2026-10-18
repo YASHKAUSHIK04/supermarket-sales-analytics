@@ -355,4 +355,18 @@ def generate_key_insights(df: pd.DataFrame) -> List[Dict[str, str]]:
             "insight": f"Average customer rating for '{single_cat}' is {cat_ratings[single_cat]:.2f}/5.0 based on {len(df)} transactions."
         })
 
+    for item in insights:
+        if "priority" not in item or not item["priority"]:
+            item["priority"] = "MEDIUM"
+        if "severity" not in item or not item["severity"]:
+            item["severity"] = item["priority"]
+        if "action" not in item:
+            item["action"] = item.get("insight", "Review metric.")
+        if "observation" not in item:
+            item["observation"] = item.get("insight", "Review metric.")
+        if "explanation" not in item:
+            item["explanation"] = "Operational performance factor."
+        if "recommendation" not in item:
+            item["recommendation"] = item["action"]
+
     return insights

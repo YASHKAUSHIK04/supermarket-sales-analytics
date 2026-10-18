@@ -1013,30 +1013,71 @@ with tabs[5]:
         "Observation ➔ Analytical Insight ➔ Possible Explanation ➔ Recommended Action."
     )
 
+    # Defensive normalization of business insights
+    raw_insights = structured_insights if isinstance(structured_insights, list) else []
+    normalized_insights: List[Dict[str, str]] = []
+
+    for raw_item in raw_insights:
+        if not isinstance(raw_item, dict):
+            continue
+
+        # Extract fields safely
+        cat = str(raw_item.get("category") or "General").strip()
+        title = str(raw_item.get("title") or "Strategic Business Finding").strip()
+
+        # Priority resolution and normalization: handle missing, empty, or unexpected values
+        raw_pri = raw_item.get("priority")
+        if raw_pri is None or str(raw_pri).strip() == "":
+            raw_pri = raw_item.get("severity")
+        if raw_pri is None or str(raw_pri).strip() == "":
+            raw_pri = "MEDIUM"
+
+        pri_clean = str(raw_pri).strip().upper()
+        if pri_clean not in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+            pri_clean = "MEDIUM"
+
+        obs = str(raw_item.get("observation") or raw_item.get("insight") or "Observation noted from retail data.").strip()
+        ins_val = str(raw_item.get("insight") or raw_item.get("observation") or "Analytical finding derived from metrics.").strip()
+        exp = str(raw_item.get("explanation") or "Operational and commercial performance factors.").strip()
+        act = str(raw_item.get("action") or raw_item.get("recommendation") or "Review operational benchmarks.").strip()
+
+        normalized_insights.append({
+            "category": cat,
+            "title": title,
+            "priority": pri_clean,
+            "severity": pri_clean,
+            "observation": obs,
+            "insight": ins_val,
+            "explanation": exp,
+            "action": act,
+            "recommendation": act
+        })
+
     col_f1, col_f2 = st.columns([1, 1])
     with col_f1:
-        ins_categories = ["All"] + sorted(list(set(i["category"] for i in structured_insights)))
+        ins_categories = ["All"] + sorted(list(set(i["category"] for i in normalized_insights)))
         selected_ins_cat = st.selectbox("Filter Insight Category:", ins_categories, key="ins_cat_filter")
     with col_f2:
         ins_priorities = ["All", "Critical", "High", "Medium", "Low"]
         selected_ins_pri = st.selectbox("Filter Priority Level:", ins_priorities, key="ins_pri_filter")
 
-    filtered_insights = structured_insights
+    filtered_insights = normalized_insights
     if selected_ins_cat != "All":
         filtered_insights = [i for i in filtered_insights if i["category"] == selected_ins_cat]
     if selected_ins_pri != "All":
-        filtered_insights = [i for i in filtered_insights if i["priority"].upper() == selected_ins_pri.upper()]
+        filtered_insights = [i for i in filtered_insights if i["priority"] == selected_ins_pri.upper()]
 
     if not filtered_insights:
         st.info("No insights matching the selected category and priority filters.")
     else:
         for ins in filtered_insights:
-            pri = ins["priority"].upper()
+            pri = ins.get("priority", "MEDIUM").upper()
             badge_class = (
                 "badge-critical" if pri == "CRITICAL"
                 else ("badge-high" if pri == "HIGH"
                 else ("badge-medium" if pri == "MEDIUM" else "badge-low"))
             )
+            display_pri = pri.capitalize()
 
             st.markdown(f"""
             <div class="insight-card-4tier">
@@ -1044,7 +1085,7 @@ with tabs[5]:
                     <span style="font-size:1.05rem; font-weight:700; color:#f8fafc;">{ins['title']}</span>
                     <div>
                         <span class="badge-pill badge-cat">{ins['category']}</span>
-                        <span class="badge-pill {badge_class}">{ins['priority']} Priority</span>
+                        <span class="badge-pill {badge_class}">{display_pri} Priority</span>
                     </div>
                 </div>
                 <div class="tier-row">
