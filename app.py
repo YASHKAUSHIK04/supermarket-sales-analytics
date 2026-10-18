@@ -10,8 +10,11 @@ Repository: https://github.com/YASHKAUSHIK04/supermarket-sales-analytics
 
 import sys
 import datetime
+import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+
+logger = logging.getLogger("supermarket_sales_app")
 
 import streamlit as st
 import pandas as pd
@@ -1379,6 +1382,43 @@ with tabs[8]:
         "incorporating active filters, financial KPIs, 4-tier business insights, and inventory status."
     )
 
+    def safe_log_report_download(
+        report_type: str,
+        dataset_scope: str,
+        filter_summary: str,
+        total_sales: float,
+        total_transactions: int,
+        file_name: str = "",
+        file_size_bytes: int = 0
+    ) -> None:
+        """Safely record audit log for report download without interrupting file delivery if logging fails."""
+        try:
+            log_report_generation(
+                report_type=report_type,
+                dataset_scope=dataset_scope,
+                filter_summary_json=str(filter_summary),
+                total_sales_analyzed=float(total_sales),
+                total_transactions=int(total_transactions),
+                file_name=file_name,
+                file_size_bytes=int(file_size_bytes)
+            )
+        except Exception as ex:
+            # Secure server-side diagnostic logging (internal details never exposed to UI)
+            logger.error(
+                "Audit log recording failed for report '%s' (type: %s): %s",
+                file_name or report_type,
+                report_type,
+                ex,
+                exc_info=True
+            )
+            st.session_state["report_audit_warning"] = (
+                "The report was generated, but its audit record could not be saved. "
+                "Please contact the administrator if this continues."
+            )
+
+    if "report_audit_warning" in st.session_state:
+        st.warning(f"⚠️ {st.session_state.pop('report_audit_warning')}")
+
     col_rep1, col_rep2, col_rep3 = st.columns(3)
 
     # 1. PDF Briefing
@@ -1401,18 +1441,22 @@ with tabs[8]:
                 anomalies=detected_anomalies,
                 inventory_df=inv_intel_df
             )
+            pdf_bytes = pdf_buf.getvalue()
+            pdf_fname = f"Executive_Sales_Report_{datetime.date.today()}.pdf"
             st.download_button(
                 label="📥 Download Executive PDF Briefing",
-                data=pdf_buf.getvalue(),
-                file_name=f"Executive_Sales_Report_{datetime.date.today()}.pdf",
+                data=pdf_bytes,
+                file_name=pdf_fname,
                 mime="application/pdf",
                 use_container_width=True,
-                on_click=lambda: log_report_generation(
-                    report_type="PDF",
+                on_click=lambda: safe_log_report_download(
+                    report_type="PDF_EXECUTIVE",
                     dataset_scope=active_dataset_name,
-                    filter_summary_json=str(active_filter_summary),
-                    total_sales_analyzed=float(kpis["total_sales"]),
-                    total_transactions=int(kpis["total_transactions"])
+                    filter_summary=str(active_filter_summary),
+                    total_sales=float(kpis["total_sales"]),
+                    total_transactions=int(kpis["total_transactions"]),
+                    file_name=pdf_fname,
+                    file_size_bytes=len(pdf_bytes)
                 )
             )
         except Exception as ex:
@@ -1438,18 +1482,22 @@ with tabs[8]:
                 anomalies=detected_anomalies,
                 inventory_df=inv_intel_df
             )
+            excel_bytes = excel_buf.getvalue()
+            excel_fname = f"Supermarket_Intelligence_Report_{datetime.date.today()}.xlsx"
             st.download_button(
                 label="📊 Download Excel Workbook (.xlsx)",
-                data=excel_buf.getvalue(),
-                file_name=f"Supermarket_Intelligence_Report_{datetime.date.today()}.xlsx",
+                data=excel_bytes,
+                file_name=excel_fname,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
-                on_click=lambda: log_report_generation(
-                    report_type="Excel",
+                on_click=lambda: safe_log_report_download(
+                    report_type="EXCEL_WORKBOOK",
                     dataset_scope=active_dataset_name,
-                    filter_summary_json=str(active_filter_summary),
-                    total_sales_analyzed=float(kpis["total_sales"]),
-                    total_transactions=int(kpis["total_transactions"])
+                    filter_summary=str(active_filter_summary),
+                    total_sales=float(kpis["total_sales"]),
+                    total_transactions=int(kpis["total_transactions"]),
+                    file_name=excel_fname,
+                    file_size_bytes=len(excel_bytes)
                 )
             )
         except Exception as ex:
@@ -1467,18 +1515,22 @@ with tabs[8]:
         </div>
         """, unsafe_allow_html=True)
         csv_str = generate_csv_export(df_filtered)
+        csv_bytes = csv_str.encode("utf-8")
+        csv_fname = f"Filtered_Transactions_{datetime.date.today()}.csv"
         st.download_button(
             label="📄 Download Filtered CSV",
-            data=csv_str.encode("utf-8"),
-            file_name=f"Filtered_Transactions_{datetime.date.today()}.csv",
+            data=csv_bytes,
+            file_name=csv_fname,
             mime="text/csv",
             use_container_width=True,
-            on_click=lambda: log_report_generation(
-                report_type="CSV",
+            on_click=lambda: safe_log_report_download(
+                report_type="CSV_DATA",
                 dataset_scope=active_dataset_name,
-                filter_summary_json=str(active_filter_summary),
-                total_sales_analyzed=float(kpis["total_sales"]),
-                total_transactions=int(kpis["total_transactions"])
+                filter_summary=str(active_filter_summary),
+                total_sales=float(kpis["total_sales"]),
+                total_transactions=int(kpis["total_transactions"]),
+                file_name=csv_fname,
+                file_size_bytes=len(csv_bytes)
             )
         )
 

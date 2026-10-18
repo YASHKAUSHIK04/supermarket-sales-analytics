@@ -981,6 +981,50 @@ def resolve_anomaly(anomaly_id: int, db_path: Optional[Union[str, Path]] = None)
         conn.close()
 
 
+VALID_REPORT_TYPES = frozenset({"PDF_EXECUTIVE", "EXCEL_WORKBOOK", "CSV_DATA"})
+
+REPORT_TYPE_MAPPING = {
+    "PDF": "PDF_EXECUTIVE",
+    "PDF_EXECUTIVE": "PDF_EXECUTIVE",
+    "EXCEL": "EXCEL_WORKBOOK",
+    "EXCEL_WORKBOOK": "EXCEL_WORKBOOK",
+    "XLSX": "EXCEL_WORKBOOK",
+    "CSV": "CSV_DATA",
+    "CSV_DATA": "CSV_DATA",
+}
+
+
+def normalize_report_type(raw_type: str) -> str:
+    """Validate and map report type string to canonical database enum value.
+
+    Allowed database values:
+      - 'PDF_EXECUTIVE'
+      - 'EXCEL_WORKBOOK'
+      - 'CSV_DATA'
+
+    Accepts only explicit aliases:
+      - 'PDF', 'PDF_EXECUTIVE' -> 'PDF_EXECUTIVE'
+      - 'EXCEL', 'XLSX', 'EXCEL_WORKBOOK' -> 'EXCEL_WORKBOOK'
+      - 'CSV', 'CSV_DATA' -> 'CSV_DATA'
+
+    Raises:
+        ValueError: If raw_type is not one of the allowed explicit aliases.
+    """
+    if not raw_type or not isinstance(raw_type, str):
+        raise ValueError(
+            f"Invalid report_type '{raw_type}'. Allowed types: 'PDF_EXECUTIVE', 'EXCEL_WORKBOOK', 'CSV_DATA'."
+        )
+
+    cleaned = raw_type.strip().upper()
+    if cleaned in REPORT_TYPE_MAPPING:
+        return REPORT_TYPE_MAPPING[cleaned]
+
+    raise ValueError(
+        f"Unsupported report_type '{raw_type}'. Allowed types are 'PDF_EXECUTIVE', 'EXCEL_WORKBOOK', 'CSV_DATA' "
+        "(or explicit aliases 'PDF', 'EXCEL', 'XLSX', 'CSV')."
+    )
+
+
 def log_report(
     report_type: str,
     file_name: str,
@@ -990,21 +1034,43 @@ def log_report(
     record_count: int = 0,
     db_path: Optional[Union[str, Path]] = None
 ) -> int:
-    """Log an audit entry for a generated PDF or Excel report."""
+    """Log an audit entry for a generated PDF, Excel, or CSV report.
+
+    Validates that report_type is one of the three allowed values:
+    'PDF_EXECUTIVE', 'EXCEL_WORKBOOK', 'CSV_DATA'.
+    Uses ACID transaction management with automatic rollback on error.
+    Ensures parameterized SQL queries and strict data typing.
+    Never alters inventory, stock levels, or product catalogs.
+    """
+    canonical_type = normalize_report_type(report_type)
+    if canonical_type not in VALID_REPORT_TYPES:
+        raise ValueError(
+            f"Unsupported report_type '{report_type}'. Allowed types are: {', '.join(sorted(VALID_REPORT_TYPES))}"
+        )
+
     init_database(db_path)
     conn = get_db_connection(db_path)
     cursor = conn.cursor()
     try:
+        conn.execute("BEGIN TRANSACTION;")
         cursor.execute("""
         INSERT INTO report_history (
             report_type, file_name, file_size_bytes, dataset_scope, filter_summary, record_count
         ) VALUES (?, ?, ?, ?, ?, ?);
         """, (
-            report_type, file_name, int(file_size_bytes),
-            dataset_scope, filter_summary, int(record_count)
+            canonical_type,
+            str(file_name or f"report_{canonical_type.lower()}"),
+            int(max(0, file_size_bytes)),
+            str(dataset_scope or "Default Dataset"),
+            str(filter_summary or ""),
+            int(max(0, record_count))
         ))
+        rep_id = cursor.lastrowid
         conn.commit()
-        return cursor.lastrowid
+        return rep_id
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
@@ -1230,16 +1296,22 @@ def log_report_generation(
     file_size_bytes: int = 0,
     db_path: Optional[Union[str, Path]] = None
 ) -> int:
-    """Log an entry into report_history table."""
+    """Log an entry into report_history table with normalized metadata.
+
+    Normalizes report_type to canonical schema enum and provides automatic naming.
+    """
     import datetime
-    f_name = file_name or f"report_{report_type.lower()}_{datetime.date.today().isoformat()}"
+    canonical_type = normalize_report_type(report_type)
+    ext_map = {"PDF_EXECUTIVE": "pdf", "EXCEL_WORKBOOK": "xlsx", "CSV_DATA": "csv"}
+    ext = ext_map.get(canonical_type, "csv")
+    f_name = file_name or f"report_{canonical_type.lower()}_{datetime.date.today().isoformat()}.{ext}"
     return log_report(
-        report_type=report_type,
+        report_type=canonical_type,
         file_name=f_name,
-        file_size_bytes=file_size_bytes,
-        dataset_scope=dataset_scope,
+        file_size_bytes=int(max(0, file_size_bytes)),
+        dataset_scope=dataset_scope or "Active Filtered Scope",
         filter_summary=filter_summary_json,
-        record_count=total_transactions,
+        record_count=int(max(0, total_transactions)),
         db_path=db_path
     )
 
