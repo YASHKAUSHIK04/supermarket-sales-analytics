@@ -703,7 +703,7 @@ st.markdown(f"""
 
 
 # Pre-compute Inventory Intelligence, Anomalies & 4-Tier Insights
-inv_intel_df = calculate_inventory_intelligence()
+inv_intel_df = calculate_inventory_intelligence(sales_df=df_filtered)
 detected_anomalies = detect_anomalies(df_filtered)
 anomaly_summary = get_anomaly_summary(detected_anomalies)
 structured_insights = generate_structured_business_insights(
@@ -1067,81 +1067,98 @@ with tabs[6]:
         "calculated directly against transactional demand."
     )
 
-    inv_kpis = get_inventory_summary_kpis(inv_intel_df)
+    if inv_intel_df is None or inv_intel_df.empty:
+        st.info(
+            "ℹ️ **Inventory Records Unavailable for this Sales Dataset**\n\n"
+            "The active sales dataset contains products that are not currently tracked in the inventory catalog, "
+            "or no inventory records have been initialized in the database.\n\n"
+            "• **SQLite Database**: Ensure the database is initialized and seeded via the **🗄️ Database & CRUD** tab.\n"
+            "• **Uploaded Datasets**: Register custom products in the **🗄️ Database & CRUD** tab or ingest the dataset into the SQLite database to link sales with inventory.\n\n"
+            "*(In accordance with retail data auditing standards, stock levels are verified against actual physical catalog records and never artificially invented.)*"
+        )
+    else:
+        inv_kpis = get_inventory_summary_kpis(inv_intel_df)
 
-    # Inventory KPI Cards
-    st.markdown(f"""
-    <div class="kpi-grid">
-        <div class="metric-card">
-            <div class="metric-title">Catalog SKUs</div>
-            <div class="metric-value">{inv_kpis['total_products']}</div>
-            <div class="metric-subtitle">Active Products</div>
+        # Inventory KPI Cards
+        st.markdown(f"""
+        <div class="kpi-grid">
+            <div class="metric-card">
+                <div class="metric-title">Catalog SKUs</div>
+                <div class="metric-value">{inv_kpis['total_products']}</div>
+                <div class="metric-subtitle">Active Products</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Inventory Valuation</div>
+                <div class="metric-value">${inv_kpis['total_stock_value']:,.2f}</div>
+                <div class="metric-subtitle">Holding Value</div>
+            </div>
+            <div class="metric-card" style="border-left: 3px solid #dc2626;">
+                <div class="metric-title" style="color: #f87171;">Out of Stock</div>
+                <div class="metric-value" style="color: #f87171;">{inv_kpis['out_of_stock_count']}</div>
+                <div class="metric-subtitle">Immediate Stockout</div>
+            </div>
+            <div class="metric-card" style="border-left: 3px solid #f59e0b;">
+                <div class="metric-title" style="color: #fbbf24;">Low Stock Alerts</div>
+                <div class="metric-value" style="color: #fbbf24;">{inv_kpis['low_stock_count']}</div>
+                <div class="metric-subtitle">Below Safety Stock</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Est. Reorder Cost</div>
+                <div class="metric-value">${inv_kpis['total_reorder_cost']:,.2f}</div>
+                <div class="metric-subtitle">Replenishment Budget</div>
+            </div>
         </div>
-        <div class="metric-card">
-            <div class="metric-title">Inventory Valuation</div>
-            <div class="metric-value">${inv_kpis['total_stock_value']:,.2f}</div>
-            <div class="metric-subtitle">Holding Value</div>
-        </div>
-        <div class="metric-card" style="border-left: 3px solid #dc2626;">
-            <div class="metric-title" style="color: #f87171;">Out of Stock</div>
-            <div class="metric-value" style="color: #f87171;">{inv_kpis['out_of_stock_count']}</div>
-            <div class="metric-subtitle">Immediate Stockout</div>
-        </div>
-        <div class="metric-card" style="border-left: 3px solid #f59e0b;">
-            <div class="metric-title" style="color: #fbbf24;">Low Stock Alerts</div>
-            <div class="metric-value" style="color: #fbbf24;">{inv_kpis['low_stock_count']}</div>
-            <div class="metric-subtitle">Below Safety Stock</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-title">Est. Reorder Cost</div>
-            <div class="metric-value">${inv_kpis['total_reorder_cost']:,.2f}</div>
-            <div class="metric-subtitle">Replenishment Budget</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
-    col_inv_f1, col_inv_f2 = st.columns(2)
-    with col_inv_f1:
-        health_opts = ["All", "Out of Stock", "Low Stock", "Healthy", "Overstocked"]
-        sel_health = st.selectbox("Filter Stock Health:", health_opts, key="inv_health_filter")
-    with col_inv_f2:
-        vel_opts = ["All", "Fast Moving", "Normal Moving", "Slow Moving", "Non-Moving"]
-        sel_vel = st.selectbox("Filter Velocity Tier:", vel_opts, key="inv_vel_filter")
+        col_inv_f1, col_inv_f2 = st.columns(2)
+        with col_inv_f1:
+            health_opts = ["All", "Out of Stock", "Low Stock", "Healthy", "Overstocked"]
+            sel_health = st.selectbox("Filter Stock Health:", health_opts, key="inv_health_filter")
+        with col_inv_f2:
+            vel_opts = ["All", "Fast Moving", "Moderate", "Slow Moving", "Dormant (No Sales)"]
+            sel_vel = st.selectbox("Filter Velocity Tier:", vel_opts, key="inv_vel_filter")
 
-    display_inv_df = inv_intel_df.copy()
-    if sel_health != "All":
-        display_inv_df = display_inv_df[display_inv_df["health_status"] == sel_health]
-    if sel_vel != "All":
-        display_inv_df = display_inv_df[display_inv_df["velocity_tier"] == sel_vel]
+        display_inv_df = inv_intel_df.copy()
+        if sel_health != "All":
+            display_inv_df = display_inv_df[display_inv_df["health_status"] == sel_health]
+        if sel_vel != "All":
+            if sel_vel in ["Fast Moving", "Fast-Moving"]:
+                display_inv_df = display_inv_df[display_inv_df["velocity_tier"].astype(str).str.contains("Fast", case=False, na=False)]
+            elif sel_vel in ["Moderate", "Normal Moving"]:
+                display_inv_df = display_inv_df[display_inv_df["velocity_tier"].astype(str).str.contains("Moderate|Normal", case=False, na=False)]
+            elif sel_vel in ["Slow Moving", "Slow-Moving"]:
+                display_inv_df = display_inv_df[display_inv_df["velocity_tier"].astype(str).str.contains("Slow", case=False, na=False)]
+            else:
+                display_inv_df = display_inv_df[display_inv_df["velocity_tier"].astype(str).str.contains("Dormant|Non-Moving", case=False, na=False)]
 
-    st.markdown("#### SKU Health & Velocity Table")
-    st.dataframe(
-        display_inv_df[[
-            "product_name", "category_name", "current_stock", "safety_stock_level",
-            "daily_sales_velocity", "days_of_stock_remaining", "velocity_tier",
-            "health_status", "recommended_reorder_qty", "estimated_reorder_cost"
-        ]].rename(columns={
-            "product_name": "Product Name",
-            "category_name": "Category",
-            "current_stock": "Current Stock",
-            "safety_stock_level": "Safety Stock",
-            "daily_sales_velocity": "Daily Velocity (Units/d)",
-            "days_of_stock_remaining": "Days Remaining",
-            "velocity_tier": "Velocity Tier",
-            "health_status": "Health Status",
-            "recommended_reorder_qty": "Reorder Qty",
-            "estimated_reorder_cost": "Est Reorder Cost ($)",
-        }).style.format({
-            "Current Stock": "{:,}",
-            "Safety Stock": "{:,}",
-            "Daily Velocity (Units/d)": "{:.2f}",
-            "Days Remaining": "{:.1f}",
-            "Reorder Qty": "{:,}",
-            "Est Reorder Cost ($)": "${:,.2f}"
-        }),
-        use_container_width=True,
-        hide_index=True
-    )
+        st.markdown("#### SKU Health & Velocity Table")
+        st.dataframe(
+            display_inv_df[[
+                "product_name", "category_name", "current_stock", "safety_stock_level",
+                "daily_sales_velocity", "days_of_stock_remaining", "velocity_tier",
+                "health_status", "recommended_reorder_qty", "estimated_reorder_cost"
+            ]].rename(columns={
+                "product_name": "Product Name",
+                "category_name": "Category",
+                "current_stock": "Current Stock",
+                "safety_stock_level": "Safety Stock",
+                "daily_sales_velocity": "Daily Velocity (Units/d)",
+                "days_of_stock_remaining": "Days Remaining",
+                "velocity_tier": "Velocity Tier",
+                "health_status": "Health Status",
+                "recommended_reorder_qty": "Reorder Qty",
+                "estimated_reorder_cost": "Est Reorder Cost ($)",
+            }).style.format({
+                "Current Stock": "{:,}",
+                "Safety Stock": "{:,}",
+                "Daily Velocity (Units/d)": "{:.2f}",
+                "Days Remaining": "{:.1f}",
+                "Reorder Qty": "{:,}",
+                "Est Reorder Cost ($)": "${:,.2f}"
+            }),
+            use_container_width=True,
+            hide_index=True
+        )
 
     st.markdown("---")
     col_act1, col_act2 = st.columns(2)
@@ -1149,34 +1166,44 @@ with tabs[6]:
         st.markdown("#### 📥 Receive New Stock Shipment")
         st.caption("Record incoming stock delivery from suppliers into the inventory ledger:")
         products_list = get_all_products()
-        prod_names = [p["product_name"] for p in products_list]
-        selected_prod_for_rcv = st.selectbox("Select Product to Receive:", prod_names, key="rcv_prod_sel")
-        rcv_qty = st.number_input("Shipment Quantity (Units):", min_value=1, max_value=1000, value=25, key="rcv_qty_input")
-        if st.button("📦 Confirm Stock Receipt", use_container_width=True):
-            target_prod = next((p for p in products_list if p["product_name"] == selected_prod_for_rcv), None)
-            if target_prod:
-                res = record_stock_movement(
-                    product_id=target_prod["product_id"],
-                    movement_type="receipt",
-                    quantity_change=rcv_qty,
-                    reference_reason="Supplier purchase order delivery"
-                )
-                if res["success"]:
-                    st.success(f"Successfully received {rcv_qty} units of '{selected_prod_for_rcv}'! New stock balance: {res['new_stock_level']}.")
-                    st.rerun()
-                else:
-                    st.error(f"Stock receipt failed: {res.get('error')}")
+        if products_list:
+            prod_names = [p["product_name"] for p in products_list]
+            selected_prod_for_rcv = st.selectbox("Select Product to Receive:", prod_names, key="rcv_prod_sel")
+            rcv_qty = st.number_input("Shipment Quantity (Units):", min_value=1, max_value=1000, value=25, key="rcv_qty_input")
+            if st.button("📦 Confirm Stock Receipt", use_container_width=True):
+                target_prod = next((p for p in products_list if p["product_name"] == selected_prod_for_rcv), None)
+                if target_prod:
+                    res = record_stock_movement(
+                        product_id=target_prod["product_id"],
+                        movement_type="receipt",
+                        quantity_change=rcv_qty,
+                        reference_reason="Supplier purchase order delivery"
+                    )
+                    if res["success"]:
+                        st.success(f"Successfully received {rcv_qty} units of '{selected_prod_for_rcv}'! New stock balance: {res['new_stock_level']}.")
+                        st.rerun()
+                    else:
+                        st.error(f"Stock receipt failed: {res.get('error')}")
+        else:
+            st.caption("No products currently available in the database to receive stock.")
 
     with col_act2:
         st.markdown("#### 🔄 Reconcile Sales Against Inventory")
         st.caption("Decoupled batch ledger reconciliation deducting sold quantities while preventing negative stock overdrafts:")
         if st.button("⚖️ Run Batch Sales Deduction Simulation", use_container_width=True):
             rec_result = reconcile_sales_deduction(df_filtered)
-            if rec_result["status"] == "success":
-                st.success(f"Reconciled {rec_result['products_reconciled']} products! Total units deducted from warehouse ledger: {rec_result['total_units_deducted']:,}.")
+            if rec_result.get("success") or rec_result.get("status") == "success":
+                p_reconciled = rec_result.get("products_reconciled", rec_result.get("deducted_items", 0))
+                units_deducted = rec_result.get("total_units_deducted", 0)
+                st.success(f"Reconciled {p_reconciled} products! Total units deducted from warehouse ledger: {units_deducted:,}.")
                 st.rerun()
+            elif rec_result.get("shortfalls"):
+                st.warning("⚠️ Reconciliation aborted: Some products have insufficient stock to cover sales volume.")
+                for sf in rec_result["shortfalls"]:
+                    st.caption(f"• {sf['product']}: Current stock {sf['current_stock']} < Requested {sf['requested_deduction']} (Shortfall: {sf['shortfall']})")
             else:
-                st.error(f"Reconciliation error: {rec_result.get('error')}")
+                err_msg = rec_result.get("message", rec_result.get("errors", ["Unknown reconciliation error"]))
+                st.error(f"Reconciliation error: {err_msg}")
 
 
 # -------------------------------------------------------------

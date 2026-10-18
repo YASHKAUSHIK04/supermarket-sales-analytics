@@ -5,7 +5,7 @@
 ![Backend](https://img.shields.io/badge/Backend-SQLite3%20Relational%20DB-lightgrey)
 ![Framework](https://img.shields.io/badge/Framework-Streamlit-red)
 ![Reporting](https://img.shields.io/badge/Reporting-ReportLab%20%7C%20openpyxl-orange)
-![Tests](https://img.shields.io/badge/Unit%20Tests-46%20Passed-brightgreen)
+![Tests](https://img.shields.io/badge/Unit%20Tests-52%20Passed-brightgreen)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 
 **Project Owner**: [Yash Kaushik](https://github.com/YASHKAUSHIK04)  
@@ -246,7 +246,7 @@ Generates a structured 7-sheet workbook:
 
 ## 🧪 Automated Test Suite
 
-The project includes **46 comprehensive automated unit tests** covering all modules:
+The project includes **52 comprehensive automated unit tests** covering all modules:
 
 ```powershell
 py -3.12 -m unittest discover -s tests -p "test_*.py" -v
@@ -254,11 +254,24 @@ py -3.12 -m unittest discover -s tests -p "test_*.py" -v
 
 ### Test Suite Breakdown:
 - `tests/test_database.py` (8 tests): Schema DDL, foreign key enforcement, baseline seeding, idempotent imports (`skip_duplicates` / `replace_all`), product CRUD, stock movement ledger, anomaly and report logging.
-- `tests/test_inventory.py` (5 tests): Sales velocity, days remaining, safety stock health badges, reorder calculations, ledger overdraft protection.
+- `tests/test_inventory.py` (11 tests): Sales velocity, days remaining, safety stock health badges, reorder calculations, ledger overdraft protection, plus regression tests for missing arguments, empty products, and unmatched catalog datasets.
 - `tests/test_anomaly.py` (9 tests): Math mismatch detection, negative value traps, rating bounds, duplicate invoices, Tukey's IQR rule, temporal spikes, small dataset safety.
 - `tests/test_insights.py` (5 tests): 4-tier structure integrity, branch disparity insights, category volume dynamics, inventory urgency integration, empty DataFrame safety.
 - `tests/test_reports.py` (5 tests): PDF generation, binary `%PDF` verification, 7-sheet Excel workbook structure, column width auto-adjustment, CSV export.
 - `tests/test_upload_and_analysis.py` (14 tests): CSV/Excel ingestion, alias auto-mapping, KPI calculations, Plotly dark-theme styling, empty dataset handling.
+
+---
+
+## ☁️ Streamlit Cloud Deployment & SQLite Storage Architecture
+
+### File System & Writable Storage Location
+- The database is stored at `data/supermarket_intelligence.db` relative to the repository root.
+- In Streamlit Cloud (Linux container environment), the application workspace is fully writable. Directory creation and write permissions are handled automatically by `os.makedirs("data", exist_ok=True)`.
+
+### Container Lifecycles & Persistence Behavior
+1. **Active Session Persistence**: While the container is running, all user transactions, stock adjustments, and uploaded records persist in the SQLite database file and survive browser page refreshes, tab switching, and filter updates.
+2. **Ephemeral Cloud Redeployments**: Streamlit Cloud operates on an ephemeral container infrastructure. When the server idles out or when a new commit triggers a redeployment, a fresh container is provisioned from the GitHub repository.
+3. **Resilient Auto-Initialization**: Because `supermarket_intelligence.db` is rightly excluded from git tracking to prevent binary merge conflicts, our `@st.cache_resource def setup_sqlite_database()` function automatically boots on fresh container start, initializes all 7 tables with strict foreign keys, and seeds the baseline 20-product catalog and 500 transactions. This guarantees zero runtime startup errors on Streamlit Cloud.
 
 ---
 

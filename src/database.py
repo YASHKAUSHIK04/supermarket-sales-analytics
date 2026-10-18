@@ -671,7 +671,8 @@ def record_stock_movement(
     movement_type: str,
     quantity_change: int,
     reference_note: str = "",
-    db_path: Optional[Union[str, Path]] = None
+    db_path: Optional[Union[str, Path]] = None,
+    reference_reason: Optional[str] = None
 ) -> int:
     """Record an inventory adjustment/receipt in the immutable ledger.
 
@@ -679,6 +680,7 @@ def record_stock_movement(
     Updates the inventory_stock snapshot atomically.
     Returns movement_id.
     """
+    effective_note = reference_reason if reference_reason is not None else reference_note
     init_database(db_path)
     conn = get_db_connection(db_path)
     cursor = conn.cursor()
@@ -700,11 +702,17 @@ def record_stock_movement(
                 f"{abs(qty_change)} would result in negative balance {new_balance}."
             )
 
+        mov_type = str(movement_type).strip().upper()
+        if mov_type in ["SALE", "SALE_DEDUCTION"]:
+            mov_type = "SALE_DEDUCTION"
+        elif mov_type in ["ADJUSTMENT", "ADJUST"]:
+            mov_type = "ADJUSTMENT_ADD" if qty_change >= 0 else "ADJUSTMENT_SUB"
+
         cursor.execute("""
         INSERT INTO inventory_movements (
             product_id, movement_date, movement_type, quantity_change, balance_after, reference_note
         ) VALUES (?, date('now'), ?, ?, ?, ?);
-        """, (int(product_id), movement_type, qty_change, new_balance, reference_note))
+        """, (int(product_id), mov_type, qty_change, new_balance, effective_note))
         mov_id = cursor.lastrowid
 
         cursor.execute("""

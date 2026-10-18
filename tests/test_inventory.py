@@ -172,6 +172,70 @@ class TestInventoryIntelligence(unittest.TestCase):
         milk_stock_after = prods_after[prods_after["Product Name"] == "Milk"].iloc[0]["Current Stock"]
         self.assertEqual(milk_stock_after, milk_stock_before)  # Stock untouched
 
+    def test_calculate_inventory_intelligence_zero_arguments(self):
+        """Regression test: verify calling calculate_inventory_intelligence() with no arguments does not raise TypeError."""
+        # When called with no arguments, it should query the database and compute intelligence
+        intel_df = calculate_inventory_intelligence(db_path=self.db_path)
+        self.assertIsInstance(intel_df, pd.DataFrame)
+        self.assertGreater(len(intel_df), 0)
+        # Verify dual column conventions are present
+        self.assertIn("product_name", intel_df.columns)
+        self.assertIn("Product Name", intel_df.columns)
+        self.assertIn("current_stock", intel_df.columns)
+        self.assertIn("Current Stock", intel_df.columns)
+        self.assertIn("health_status", intel_df.columns)
+        self.assertIn("Stock_Health", intel_df.columns)
+
+    def test_calculate_inventory_intelligence_sales_df_only(self):
+        """Regression test: verify calling with sales_df only loads catalog from database."""
+        intel_df = calculate_inventory_intelligence(sales_df=self.mock_sales, db_path=self.db_path)
+        self.assertIsInstance(intel_df, pd.DataFrame)
+        self.assertGreater(len(intel_df), 0)
+        milk_row = intel_df[intel_df["Product Name"] == "Milk"].iloc[0]
+        self.assertEqual(milk_row["Units_Sold"], 50)
+
+    def test_calculate_inventory_intelligence_products_df_only(self):
+        """Regression test: verify calling with products_df only computes metrics with 0 sales."""
+        prods_df = get_products_df(active_only=True, db_path=self.db_path)
+        intel_df = calculate_inventory_intelligence(products_df=prods_df, db_path=self.db_path)
+        self.assertIsInstance(intel_df, pd.DataFrame)
+        self.assertEqual(len(intel_df), len(prods_df))
+
+    def test_calculate_inventory_intelligence_empty_products(self):
+        """Regression test: verify calling with empty products returns empty DataFrame with canonical columns."""
+        intel_df = calculate_inventory_intelligence(products_df=pd.DataFrame(), sales_df=self.mock_sales)
+        self.assertIsInstance(intel_df, pd.DataFrame)
+        self.assertTrue(intel_df.empty)
+        self.assertIn("product_name", intel_df.columns)
+        self.assertIn("Product Name", intel_df.columns)
+
+    def test_calculate_inventory_intelligence_unmatched_sales(self):
+        """Regression test: verify that sales with completely novel/unmatched products returns empty DataFrame."""
+        novel_sales = pd.DataFrame({
+            "Product": ["Wireless Gaming Mouse", "Mechanical Keyboard"],
+            "Quantity": [5, 2],
+            "Date": ["2026-06-15", "2026-06-16"],
+            "Sales": [2500.0, 3000.0]
+        })
+        prods_df = get_products_df(active_only=True, db_path=self.db_path)
+        intel_df = calculate_inventory_intelligence(products_df=prods_df, sales_df=novel_sales)
+        self.assertIsInstance(intel_df, pd.DataFrame)
+        self.assertTrue(intel_df.empty, "When sales products do not exist in catalog, inventory should be flagged unavailable.")
+
+    def test_inventory_summary_kpis_empty_and_valid(self):
+        """Regression test: verify KPI calculation on both empty and populated DataFrames."""
+        empty_kpis = get_inventory_summary_kpis(pd.DataFrame())
+        self.assertEqual(empty_kpis["total_products"], 0)
+        self.assertEqual(empty_kpis["total_stock_value"], 0.0)
+        self.assertEqual(empty_kpis["out_of_stock_count"], 0)
+
+        prods_df = get_products_df(active_only=True, db_path=self.db_path)
+        intel_df = calculate_inventory_intelligence(products_df=prods_df, sales_df=self.mock_sales)
+        populated_kpis = get_inventory_summary_kpis(intel_df)
+        self.assertGreater(populated_kpis["total_products"], 0)
+        self.assertGreater(populated_kpis["total_stock_value"], 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()
+
