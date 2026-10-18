@@ -58,52 +58,78 @@ st.set_page_config(
 # Custom CSS for executive portfolio styling
 st.markdown("""
 <style>
-    /* Metric Cards */
+    /* Responsive KPI Cards Grid */
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: 12px;
+        margin-bottom: 24px;
+        width: 100%;
+    }
     .metric-card {
         background: #ffffff;
         border: 1px solid #e2e8f0;
         border-radius: 10px;
-        padding: 16px 20px;
+        padding: 12px 14px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         transition: transform 0.15s ease, box-shadow 0.15s ease;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 96px;
+        box-sizing: border-box;
+        overflow: hidden;
     }
     .metric-card:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 10px rgba(0,0,0,0.08);
     }
     .metric-title {
-        font-size: 0.82rem;
+        font-size: 0.72rem;
         font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.04em;
         color: #64748b;
-        margin-bottom: 6px;
+        margin-bottom: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     .metric-value {
-        font-size: 1.65rem;
+        font-size: clamp(1.15rem, 1.55vw, 1.45rem);
         font-weight: 700;
         color: #0f172a;
-        line-height: 1.2;
+        line-height: 1.25;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     .metric-subtitle {
-        font-size: 0.78rem;
+        font-size: 0.70rem;
         color: #94a3b8;
-        margin-top: 4px;
+        margin-top: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     /* Dataset Banner */
     .dataset-badge {
         display: inline-flex;
+        flex-wrap: wrap;
         align-items: center;
         gap: 8px;
         background: #eef2ff;
         border: 1px solid #c7d2fe;
         color: #3730a3;
-        font-size: 0.85rem;
+        font-size: 0.82rem;
         font-weight: 600;
         padding: 6px 14px;
         border-radius: 20px;
         margin-bottom: 16px;
+        max-width: 100%;
+        word-break: break-word;
+        line-height: 1.4;
     }
 
     /* Insight Cards */
@@ -113,6 +139,8 @@ st.markdown("""
         border-radius: 6px;
         padding: 14px 18px;
         margin-bottom: 14px;
+        word-break: break-word;
+        overflow-wrap: break-word;
     }
     .insight-badge {
         font-size: 0.72rem;
@@ -126,15 +154,18 @@ st.markdown("""
         margin-bottom: 6px;
     }
     .insight-title {
-        font-size: 1.0rem;
+        font-size: 0.96rem;
         font-weight: 600;
         color: #0f172a;
         margin-bottom: 4px;
+        word-break: break-word;
+        line-height: 1.35;
     }
     .insight-text {
-        font-size: 0.90rem;
+        font-size: 0.88rem;
         color: #475569;
-        line-height: 1.45;
+        line-height: 1.5;
+        word-break: break-word;
     }
 
     /* Quality Summary Card */
@@ -145,15 +176,35 @@ st.markdown("""
         padding: 12px 16px;
         margin-bottom: 14px;
         font-size: 0.85rem;
+        word-break: break-word;
     }
     
-    /* Hide top padding */
+    /* Streamlit Tabs text wrap protection */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+    .stTabs [data-baseweb="tab"] {
+        padding: 8px 12px;
+        white-space: nowrap;
+        font-size: 0.88rem;
+    }
+
+    /* Sidebar controls protection */
+    section[data-testid="stSidebar"] [data-baseweb="tag"] {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Container padding */
     .block-container {
-        padding-top: 2rem;
+        padding-top: 1.8rem;
         padding-bottom: 2rem;
     }
 </style>
 """, unsafe_allow_html=True)
+
 
 
 @st.cache_data
@@ -514,71 +565,46 @@ if df_filtered.empty:
 # -------------------------------------------------------------
 kpis = compute_kpis(df_filtered)
 
-kpi_cols = st.columns(7)
-with kpi_cols[0]:
-    st.markdown(f"""
+st.markdown(f"""
+<div class="kpi-grid">
     <div class="metric-card">
-        <div class="metric-title">Total Sales</div>
-        <div class="metric-value">₹{kpis['total_sales']:,.0f}</div>
-        <div class="metric-subtitle">Gross Revenue</div>
+        <div class="metric-title" title="Total Sales">Total Sales</div>
+        <div class="metric-value" title="₹{kpis['total_sales']:,.2f}">₹{kpis['total_sales']:,.0f}</div>
+        <div class="metric-subtitle" title="Gross Revenue">Gross Revenue</div>
     </div>
-    """, unsafe_allow_html=True)
-
-with kpi_cols[1]:
-    st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-title">Total Quantity</div>
-        <div class="metric-value">{kpis['total_quantity']:,}</div>
-        <div class="metric-subtitle">Units Sold</div>
+        <div class="metric-title" title="Total Quantity">Total Quantity</div>
+        <div class="metric-value" title="{kpis['total_quantity']:,} units">{kpis['total_quantity']:,}</div>
+        <div class="metric-subtitle" title="Units Sold">Units Sold</div>
     </div>
-    """, unsafe_allow_html=True)
-
-with kpi_cols[2]:
-    st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-title">Transactions</div>
-        <div class="metric-value">{kpis['total_transactions']:,}</div>
-        <div class="metric-subtitle">Customer Orders</div>
+        <div class="metric-title" title="Transactions">Transactions</div>
+        <div class="metric-value" title="{kpis['total_transactions']:,} orders">{kpis['total_transactions']:,}</div>
+        <div class="metric-subtitle" title="Customer Orders">Customer Orders</div>
     </div>
-    """, unsafe_allow_html=True)
-
-with kpi_cols[3]:
-    st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-title">Avg Order Value</div>
-        <div class="metric-value">₹{kpis['avg_transaction_value']:,.1f}</div>
-        <div class="metric-subtitle">Per Transaction</div>
+        <div class="metric-title" title="Avg Order Value">Avg Order Value</div>
+        <div class="metric-value" title="₹{kpis['avg_transaction_value']:,.2f}">₹{kpis['avg_transaction_value']:,.1f}</div>
+        <div class="metric-subtitle" title="Per Transaction">Per Transaction</div>
     </div>
-    """, unsafe_allow_html=True)
-
-with kpi_cols[4]:
-    st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-title">Avg Rating</div>
-        <div class="metric-value">{kpis['avg_rating']:.2f} <span style="font-size:1.1rem; color:#f59e0b;">★</span></div>
-        <div class="metric-subtitle">Out of 5.0</div>
+        <div class="metric-title" title="Avg Rating">Avg Rating</div>
+        <div class="metric-value" title="{kpis['avg_rating']:.2f} out of 5.0">{kpis['avg_rating']:.2f} <span style="font-size:1.0rem; color:#f59e0b;">★</span></div>
+        <div class="metric-subtitle" title="Out of 5.0">Out of 5.0</div>
     </div>
-    """, unsafe_allow_html=True)
-
-with kpi_cols[5]:
-    st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-title">Products</div>
-        <div class="metric-value">{kpis['unique_products']}</div>
-        <div class="metric-subtitle">SKUs Filtered</div>
+        <div class="metric-title" title="Products">Products</div>
+        <div class="metric-value" title="{kpis['unique_products']} SKUs">{kpis['unique_products']}</div>
+        <div class="metric-subtitle" title="SKUs Filtered">SKUs Filtered</div>
     </div>
-    """, unsafe_allow_html=True)
-
-with kpi_cols[6]:
-    st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-title">Categories</div>
-        <div class="metric-value">{kpis['unique_categories']}</div>
-        <div class="metric-subtitle">Merchandise Groups</div>
+        <div class="metric-title" title="Categories">Categories</div>
+        <div class="metric-value" title="{kpis['unique_categories']} Groups">{kpis['unique_categories']}</div>
+        <div class="metric-subtitle" title="Merchandise Groups">Merchandise Groups</div>
     </div>
-    """, unsafe_allow_html=True)
+</div>
+""", unsafe_allow_html=True)
 
-st.markdown("<div style='margin-bottom: 24px;'></div>", unsafe_allow_html=True)
 
 # -------------------------------------------------------------
 # TABS NAVIGATION
@@ -647,22 +673,23 @@ with tabs[1]:
             y_col="Product",
             orientation="h",
             title="Top 10 Products by Revenue (₹)",
-            color_col="Category"
+            color_col="Category",
+            show_legend=False
         )
         st.plotly_chart(fig_rev, use_container_width=True)
 
     with col_p2:
         top_vol = prod_perf["top_volume"].head(10)
-        fig_vol = px.bar(
+        fig_vol = plot_bar(
             top_vol,
-            x="Total_Quantity",
-            y="Product",
+            x_col="Total_Quantity",
+            y_col="Product",
             orientation="h",
-            color="Category",
-            title="<b>Top 10 Products by Quantity Sold (Units)</b>",
-            color_discrete_sequence=px.colors.qualitative.Plotly
+            title="Top 10 Products by Quantity Sold (Units)",
+            color_col="Category",
+            format_currency=False,
+            show_legend=False
         )
-        fig_vol.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(248,249,250,0.8)")
         st.plotly_chart(fig_vol, use_container_width=True)
 
     st.markdown("---")
@@ -797,44 +824,45 @@ with tabs[4]:
             color="Mean_Rating",
             color_continuous_scale="Viridis"
         )
-        fig_cat_rating.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(248,249,250,0.8)",
-            xaxis=dict(range=[1.0, 5.0], title="Mean Rating (1-5)")
+        fig_cat_rating.update_traces(hovertemplate="<b>%{y}:</b> Rating: %{x:.2f}<extra></extra>")
+        apply_layout_theme(
+            fig_cat_rating,
+            title=dict(text="<b>Average Customer Rating by Category</b>", x=0.02, y=0.98, xanchor="left", yanchor="top"),
+            xaxis=dict(range=[1.0, 5.0], title="Mean Rating (1-5)", automargin=True),
+            yaxis=dict(automargin=True),
+            coloraxis_showscale=False,
+            margin=dict(t=42, b=45, l=60, r=25)
         )
         st.plotly_chart(fig_cat_rating, use_container_width=True)
 
     st.markdown("---")
     col_r3, col_r4 = st.columns(2)
     with col_r3:
-        fig_city_rating = px.bar(
+        fig_city_rating = plot_bar(
             ratings_data["by_city"],
-            x="City",
-            y="Mean_Rating",
-            color="City",
-            title="<b>Average Rating by City</b>"
+            x_col="City",
+            y_col="Mean_Rating",
+            title="Average Rating by City",
+            color_col="City",
+            format_currency=False,
+            show_legend=False
         )
-        fig_city_rating.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(248,249,250,0.8)",
-            yaxis=dict(range=[1.0, 5.0], title="Mean Rating")
-        )
+        fig_city_rating.update_yaxes(range=[1.0, 5.0], title="Mean Rating")
         st.plotly_chart(fig_city_rating, use_container_width=True)
 
     with col_r4:
-        fig_type_rating = px.bar(
+        fig_type_rating = plot_bar(
             ratings_data["by_customer_type"],
-            x="Customer Type",
-            y="Mean_Rating",
-            color="Customer Type",
-            title="<b>Average Rating by Customer Type</b>"
+            x_col="Customer Type",
+            y_col="Mean_Rating",
+            title="Average Rating by Customer Type",
+            color_col="Customer Type",
+            format_currency=False,
+            show_legend=False
         )
-        fig_type_rating.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(248,249,250,0.8)",
-            yaxis=dict(range=[1.0, 5.0], title="Mean Rating")
-        )
+        fig_type_rating.update_yaxes(range=[1.0, 5.0], title="Mean Rating")
         st.plotly_chart(fig_type_rating, use_container_width=True)
+
 
 
 # -------------------------------------------------------------

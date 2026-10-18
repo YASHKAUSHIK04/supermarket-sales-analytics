@@ -7,6 +7,7 @@ Provides reusable, professionally styled Plotly figures:
 - Clean hover tooltips with explicit currency/quantity formatting
 - Responsive layouts with transparent/clean backgrounds
 - Safe layout theming preventing duplicate keyword argument errors
+- Strict text-overlap and text-overflow protection (isolated titles and legends, automargin enabled)
 """
 
 from typing import Optional, List
@@ -30,21 +31,30 @@ CATEGORY_PALETTE = [
 def get_layout_theme(**overrides) -> dict:
     """Return a clean copy of the layout theme with optional keyword overrides safely merged.
 
-    Prevents TypeError: got multiple values for keyword argument when callers
-    customize layout settings such as 'margin', 'legend', or 'title'.
+    Prevents text collisions and TypeError: got multiple values for keyword argument.
+    Titles are anchored to the top-left, horizontal legends are placed cleanly below the plot area,
+    and margins are configured to prevent label clipping.
     """
     theme = {
-        "font": {"family": "Inter, Segoe UI, sans-serif", "size": 12, "color": "#2c3e50"},
+        "font": {"family": "Inter, Segoe UI, sans-serif", "size": 11, "color": "#2c3e50"},
         "paper_bgcolor": "rgba(0,0,0,0)",
         "plot_bgcolor": "rgba(248,249,250,0.8)",
-        "margin": {"l": 40, "r": 30, "t": 60, "b": 40},
+        "margin": {"l": 55, "r": 30, "t": 48, "b": 50},
+        "title": {
+            "font": {"size": 13, "color": "#0f172a"},
+            "x": 0.02,
+            "xanchor": "left",
+            "y": 0.98,
+            "yanchor": "top"
+        },
         "legend": {
             "orientation": "h",
-            "yanchor": "bottom",
-            "y": 1.02,
-            "xanchor": "right",
-            "x": 1,
-            "title_text": ""
+            "yanchor": "top",
+            "y": -0.18,
+            "xanchor": "center",
+            "x": 0.5,
+            "title_text": "",
+            "font": {"size": 10}
         }
     }
     for key, val in overrides.items():
@@ -97,12 +107,27 @@ def plot_sales_trend(df_trend: pd.DataFrame, freq_name: str = "Month") -> go.Fig
 
     apply_layout_theme(
         fig,
-        title=dict(text=f"<b>Sales & Transaction Trend Over {freq_name}</b>"),
-        xaxis_title="",
-        yaxis=dict(title="Sales (₹)", showgrid=True, gridcolor="#e2e8f0"),
-        yaxis2=dict(title="Transactions", overlaying="y", side="right", showgrid=False),
+        title=dict(
+            text=f"<b>Sales & Transaction Trend Over {freq_name}</b>",
+            x=0.02,
+            y=0.98,
+            xanchor="left",
+            yanchor="top"
+        ),
+        xaxis=dict(title="", automargin=True),
+        yaxis=dict(title="Sales (₹)", automargin=True, showgrid=True, gridcolor="#e2e8f0"),
+        yaxis2=dict(title="Transactions", automargin=True, overlaying="y", side="right", showgrid=False),
         hovermode="x unified",
-        margin=dict(t=65)
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.18,
+            xanchor="center",
+            x=0.5,
+            font=dict(size=10)
+        ),
+        margin=dict(t=48, b=65, l=60, r=60)
     )
     return fig
 
@@ -117,12 +142,9 @@ def plot_bar(
     format_currency: bool = True,
     show_legend: Optional[bool] = None
 ) -> go.Figure:
-    """Generate standardized clean bar chart.
+    """Generate standardized clean bar chart with safe layout and automargins.
     
-    Automatically handles legend visibility to prevent title/legend collisions:
-    - If color_col matches the categorical axis (e.g. Category on y-axis), redundant
-      duplicate legends are hidden by default to avoid overlapping the title.
-    - If color_col is a distinct dimension, the legend is preserved with ample top margin.
+    Prevents title/legend collisions and y-axis label clipping.
     """
     if df.empty:
         return go.Figure()
@@ -134,7 +156,7 @@ def plot_bar(
         elif (orientation == "h" and color_col == y_col) or (orientation == "v" and color_col == x_col):
             show_legend = False
         else:
-            show_legend = True
+            show_legend = False
 
     if orientation == "h":
         fig = px.bar(
@@ -148,6 +170,8 @@ def plot_bar(
         )
         if format_currency:
             fig.update_traces(hovertemplate=f"<b>%{{y}}:</b> ₹%{{x:,.2f}}<extra></extra>")
+        else:
+            fig.update_traces(hovertemplate=f"<b>%{{y}}:</b> %{{x:,}}<extra></extra>")
     else:
         fig = px.bar(
             df,
@@ -160,34 +184,43 @@ def plot_bar(
         )
         if format_currency:
             fig.update_traces(hovertemplate=f"<b>%{{x}}:</b> ₹%{{y:,.2f}}<extra></extra>")
+        else:
+            fig.update_traces(hovertemplate=f"<b>%{{x}}:</b> %{{y:,.2f}}<extra></extra>")
+
+    fig.update_xaxes(automargin=True)
+    fig.update_yaxes(automargin=True, showgrid=True, gridcolor="#e2e8f0")
 
     if show_legend:
         apply_layout_theme(
             fig,
             showlegend=True,
+            title=dict(text=f"<b>{title}</b>", x=0.02, y=0.98, xanchor="left", yanchor="top"),
             legend=dict(
                 orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1,
-                title_text=""
+                yanchor="top",
+                y=-0.22,
+                xanchor="center",
+                x=0.5,
+                font=dict(size=10)
             ),
-            margin=dict(t=65)
+            margin=dict(t=48, b=70, l=60, r=25)
         )
     else:
         apply_layout_theme(
             fig,
             showlegend=False,
-            margin=dict(t=50)
+            title=dict(text=f"<b>{title}</b>", x=0.02, y=0.98, xanchor="left", yanchor="top"),
+            margin=dict(t=42, b=45, l=60, r=25)
         )
 
-    fig.update_yaxes(showgrid=True, gridcolor="#e2e8f0")
     return fig
 
 
 def plot_donut(df: pd.DataFrame, names_col: str, values_col: str, title: str) -> go.Figure:
-    """Generate clean donut chart with percentage labels."""
+    """Generate clean donut chart with percentage labels and isolated bottom legend.
+    
+    Prevents text collision inside slices and title collisions at the top.
+    """
     if df.empty:
         return go.Figure()
 
@@ -201,15 +234,32 @@ def plot_donut(df: pd.DataFrame, names_col: str, values_col: str, title: str) ->
     )
     fig.update_traces(
         textposition="inside",
-        textinfo="percent+label",
+        textinfo="percent",
+        insidetextorientation="horizontal",
         hovertemplate="<b>%{label}</b><br>Sales: ₹%{value:,.2f}<br>Share: %{percent}<extra></extra>"
     )
-    apply_layout_theme(fig, margin=dict(t=55))
+    apply_layout_theme(
+        fig,
+        title=dict(text=f"<b>{title}</b>", x=0.02, y=0.98, xanchor="left", yanchor="top"),
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.12,
+            xanchor="center",
+            x=0.5,
+            font=dict(size=10)
+        ),
+        margin=dict(t=48, b=60, l=20, r=20)
+    )
     return fig
 
 
 def plot_scatter_quadrant(df: pd.DataFrame) -> go.Figure:
-    """Generate product volume vs unit price scatter with bubble size proportional to sales."""
+    """Generate product volume vs unit price scatter with bubble size proportional to sales.
+    
+    Uses concise title and bottom legend to prevent text overlap across wide/narrow viewports.
+    """
     if df.empty:
         return go.Figure()
 
@@ -220,20 +270,35 @@ def plot_scatter_quadrant(df: pd.DataFrame) -> go.Figure:
         size="Total_Sales",
         color="Category",
         hover_name="Product",
-        title="<b>Product Matrix: Unit Price vs Total Quantity Sold</b> (Bubble Size = Sales)",
+        title="<b>Product Matrix: Unit Price vs Quantity Sold</b>",
         color_discrete_sequence=CATEGORY_PALETTE,
         labels={"Avg_Unit_Price": "Avg Unit Price (₹)", "Total_Quantity": "Total Quantity (Units)"}
     )
     fig.update_traces(
         hovertemplate="<b>%{hovertext}</b><br>Unit Price: ₹%{x:.2f}<br>Qty Sold: %{y}<extra></extra>"
     )
+    fig.update_xaxes(automargin=True, showgrid=True, gridcolor="#e2e8f0")
+    fig.update_yaxes(automargin=True, showgrid=True, gridcolor="#e2e8f0")
     apply_layout_theme(
         fig,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, title_text=""),
-        margin=dict(t=65)
+        title=dict(
+            text="<b>Product Matrix: Unit Price vs Quantity Sold</b>",
+            x=0.02,
+            y=0.98,
+            xanchor="left",
+            yanchor="top"
+        ),
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.22,
+            xanchor="center",
+            x=0.5,
+            font=dict(size=10)
+        ),
+        margin=dict(t=48, b=80, l=60, r=30)
     )
-    fig.update_xaxes(showgrid=True, gridcolor="#e2e8f0")
-    fig.update_yaxes(showgrid=True, gridcolor="#e2e8f0")
     return fig
 
 
@@ -257,13 +322,19 @@ def plot_rating_histogram(df: pd.DataFrame) -> go.Figure:
         annotation_text=f"Mean: {avg_rating:.2f}",
         annotation_position="top right"
     )
+    fig.update_xaxes(title="Rating (1 to 5)", automargin=True)
+    fig.update_yaxes(title="Number of Reviews", automargin=True, showgrid=True, gridcolor="#e2e8f0")
     apply_layout_theme(
         fig,
-        xaxis_title="Rating (1 to 5)",
-        yaxis_title="Number of Reviews",
-        margin=dict(t=55)
+        title=dict(
+            text=f"<b>Customer Rating Distribution</b> (Mean = {avg_rating:.2f} / 5.0)",
+            x=0.02,
+            y=0.98,
+            xanchor="left",
+            yanchor="top"
+        ),
+        margin=dict(t=48, b=48, l=55, r=30)
     )
-    fig.update_yaxes(showgrid=True, gridcolor="#e2e8f0")
     return fig
 
 
@@ -275,7 +346,7 @@ def plot_grouped_bar(
     title: str,
     barmode: str = "group"
 ) -> go.Figure:
-    """Generate grouped comparison bar chart."""
+    """Generate grouped comparison bar chart with bottom legend and automargins."""
     if df.empty:
         return go.Figure()
 
@@ -288,10 +359,20 @@ def plot_grouped_bar(
         color_discrete_sequence=[PRIMARY_COLOR, ACCENT_COLOR, SECONDARY_COLOR],
         title=f"<b>{title}</b>"
     )
+    fig.update_xaxes(automargin=True)
+    fig.update_yaxes(automargin=True, showgrid=True, gridcolor="#e2e8f0")
     apply_layout_theme(
         fig,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, title_text=""),
-        margin=dict(t=65)
+        title=dict(text=f"<b>{title}</b>", x=0.02, y=0.98, xanchor="left", yanchor="top"),
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.20,
+            xanchor="center",
+            x=0.5,
+            font=dict(size=10)
+        ),
+        margin=dict(t=48, b=65, l=60, r=30)
     )
-    fig.update_yaxes(showgrid=True, gridcolor="#e2e8f0")
     return fig
