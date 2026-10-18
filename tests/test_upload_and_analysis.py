@@ -51,7 +51,10 @@ from src.visualization import (
     plot_donut,
     plot_scatter_quadrant,
     plot_rating_histogram,
-    plot_grouped_bar
+    plot_grouped_bar,
+    apply_layout_theme,
+    get_layout_theme,
+    LAYOUT_THEME
 )
 
 
@@ -253,6 +256,71 @@ class TestSupermarketAnalytics(unittest.TestCase):
 
         for fig in [fig1, fig2, fig3, fig4, fig5, fig6]:
             self.assertIsNotNone(fig)
+
+    def test_layout_theme_and_contrast(self):
+        """Verify dark theme typography, transparent backgrounds, and safe keyword merging."""
+        theme = get_layout_theme()
+        # High contrast font colors for dark theme
+        self.assertEqual(theme["font"]["color"], "#e5e7eb")
+        self.assertEqual(theme["title"]["font"]["color"], "#f8fafc")
+        self.assertEqual(theme["paper_bgcolor"], "rgba(0,0,0,0)")
+        self.assertEqual(theme["plot_bgcolor"], "rgba(0,0,0,0)")
+        self.assertEqual(theme["legend"]["orientation"], "h")
+        self.assertEqual(theme["legend"]["font"]["color"], "#e5e7eb")
+
+        # Test safe overrides
+        custom_theme = get_layout_theme(margin={"t": 80, "b": 80}, showlegend=False)
+        self.assertEqual(custom_theme["margin"]["t"], 80)
+        self.assertEqual(custom_theme["margin"]["b"], 80)
+        self.assertEqual(custom_theme["margin"]["l"], 55)  # preserved from default
+        self.assertFalse(custom_theme["showlegend"])
+
+    def test_donut_chart_labels_and_axes(self):
+        """Verify donut chart displays city names, percentage labels, and has zero Cartesian axes."""
+        city_df = pd.DataFrame({
+            "City": ["Mumbai", "Delhi", "Bengaluru", "Jaipur"],
+            "Sales": [72469.45, 64116.26, 55468.29, 52357.08]
+        })
+        fig = plot_donut(city_df, names_col="City", values_col="Sales", title="Sales Share by City")
+
+        # Ensure slice labels show both label and percent
+        self.assertEqual(len(fig.data), 1)
+        self.assertEqual(fig.data[0].type, "pie")
+        self.assertEqual(fig.data[0].hole, 0.45)
+        self.assertEqual(fig.data[0].textinfo, "label+percent")
+        self.assertEqual(fig.data[0].textposition, "inside")
+        self.assertEqual(fig.data[0].textfont.color, "#ffffff")
+
+        # Ensure title has crisp white color and is centered
+        self.assertIn("Sales Share by City", fig.layout.title.text)
+        self.assertEqual(fig.layout.title.font.color, "#f8fafc")
+        self.assertEqual(fig.layout.title.x, 0.5)
+
+        # Ensure no stray Cartesian axes or Transactions label
+        self.assertFalse(fig.layout.xaxis.visible)
+        self.assertFalse(fig.layout.yaxis.visible)
+        if hasattr(fig.layout, "yaxis2") and fig.layout.yaxis2 is not None:
+            self.assertFalse(fig.layout.yaxis2.visible)
+            self.assertIsNone(fig.layout.yaxis2.title.text)
+
+    def test_category_ratings_chart_theming(self):
+        """Verify rating by category chart with apply_layout_theme succeeds without NameError."""
+        import plotly.express as px
+        cat_df = pd.DataFrame({
+            "Category": ["Beverages", "Dairy", "Fruits"],
+            "Mean_Rating": [4.2, 3.8, 4.5]
+        })
+        fig = px.bar(cat_df, x="Mean_Rating", y="Category", orientation="h")
+        fig_themed = apply_layout_theme(
+            fig,
+            title=dict(text="<b>Average Customer Rating by Category</b>", font=dict(color="#f8fafc", size=13)),
+            xaxis=dict(range=[1.0, 5.0], title="Mean Rating (1-5)", automargin=True),
+            yaxis=dict(automargin=True),
+            coloraxis_showscale=True
+        )
+        self.assertIsNotNone(fig_themed)
+        self.assertEqual(fig_themed.layout.title.font.color, "#f8fafc")
+        self.assertTrue(fig_themed.layout.coloraxis.showscale)
 
 
 if __name__ == "__main__":

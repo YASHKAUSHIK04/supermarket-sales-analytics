@@ -35,6 +35,9 @@ from src.visualization import (
     plot_scatter_quadrant,
     plot_rating_histogram,
     plot_grouped_bar,
+    apply_layout_theme,
+    get_layout_theme,
+    LAYOUT_THEME,
     PRIMARY_COLOR,
     SECONDARY_COLOR,
     ACCENT_COLOR
@@ -67,12 +70,12 @@ st.markdown("""
         width: 100%;
     }
     .metric-card {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
+        background: #1e293b;
+        border: 1px solid #334155;
         border-radius: 10px;
         padding: 12px 14px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
+        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -82,14 +85,15 @@ st.markdown("""
     }
     .metric-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+        box-shadow: 0 8px 16px -2px rgba(0, 0, 0, 0.3);
+        border-color: #475569;
     }
     .metric-title {
         font-size: 0.72rem;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.04em;
-        color: #64748b;
+        color: #94a3b8;
         margin-bottom: 4px;
         white-space: nowrap;
         overflow: hidden;
@@ -98,7 +102,7 @@ st.markdown("""
     .metric-value {
         font-size: clamp(1.15rem, 1.55vw, 1.45rem);
         font-weight: 700;
-        color: #0f172a;
+        color: #f8fafc;
         line-height: 1.25;
         white-space: nowrap;
         overflow: hidden;
@@ -106,7 +110,7 @@ st.markdown("""
     }
     .metric-subtitle {
         font-size: 0.70rem;
-        color: #94a3b8;
+        color: #cbd5e1;
         margin-top: 2px;
         white-space: nowrap;
         overflow: hidden;
@@ -119,9 +123,9 @@ st.markdown("""
         flex-wrap: wrap;
         align-items: center;
         gap: 8px;
-        background: #eef2ff;
-        border: 1px solid #c7d2fe;
-        color: #3730a3;
+        background: #1e1b4b;
+        border: 1px solid #4338ca;
+        color: #c7d2fe;
         font-size: 0.82rem;
         font-weight: 600;
         padding: 6px 14px;
@@ -134,8 +138,9 @@ st.markdown("""
 
     /* Insight Cards */
     .insight-card {
-        background-color: #f8fafc;
-        border-left: 4px solid #1f4e79;
+        background-color: #1e293b;
+        border: 1px solid #334155;
+        border-left: 4px solid #38bdf8;
         border-radius: 6px;
         padding: 14px 18px;
         margin-bottom: 14px;
@@ -146,8 +151,9 @@ st.markdown("""
         font-size: 0.72rem;
         font-weight: 700;
         text-transform: uppercase;
-        background-color: #e2e8f0;
-        color: #334155;
+        background-color: #0f172a;
+        color: #38bdf8;
+        border: 1px solid #0284c7;
         padding: 2px 8px;
         border-radius: 4px;
         display: inline-block;
@@ -156,26 +162,27 @@ st.markdown("""
     .insight-title {
         font-size: 0.96rem;
         font-weight: 600;
-        color: #0f172a;
+        color: #f8fafc;
         margin-bottom: 4px;
         word-break: break-word;
         line-height: 1.35;
     }
     .insight-text {
         font-size: 0.88rem;
-        color: #475569;
+        color: #cbd5e1;
         line-height: 1.5;
         word-break: break-word;
     }
 
     /* Quality Summary Card */
     .quality-box {
-        background-color: #f8fafc;
-        border: 1px solid #e2e8f0;
+        background-color: #1e293b;
+        border: 1px solid #334155;
         border-radius: 8px;
         padding: 12px 16px;
         margin-bottom: 14px;
         font-size: 0.85rem;
+        color: #cbd5e1;
         word-break: break-word;
     }
     
@@ -674,7 +681,7 @@ with tabs[1]:
             orientation="h",
             title="Top 10 Products by Revenue (₹)",
             color_col="Category",
-            show_legend=False
+            show_legend=True
         )
         st.plotly_chart(fig_rev, use_container_width=True)
 
@@ -688,7 +695,7 @@ with tabs[1]:
             title="Top 10 Products by Quantity Sold (Units)",
             color_col="Category",
             format_currency=False,
-            show_legend=False
+            show_legend=True
         )
         st.plotly_chart(fig_vol, use_container_width=True)
 
@@ -827,10 +834,29 @@ with tabs[4]:
         fig_cat_rating.update_traces(hovertemplate="<b>%{y}:</b> Rating: %{x:.2f}<extra></extra>")
         apply_layout_theme(
             fig_cat_rating,
-            title=dict(text="<b>Average Customer Rating by Category</b>", x=0.02, y=0.98, xanchor="left", yanchor="top"),
-            xaxis=dict(range=[1.0, 5.0], title="Mean Rating (1-5)", automargin=True),
-            yaxis=dict(automargin=True),
-            coloraxis_showscale=False,
+            title=dict(text="<b>Average Customer Rating by Category</b>", font=dict(color="#f8fafc", size=13), x=0.02, y=0.98, xanchor="left", yanchor="top"),
+            xaxis=dict(
+                range=[1.0, 5.0],
+                title="Mean Rating (1-5)",
+                automargin=True,
+                tickfont=dict(color="#cbd5e1"),
+                title_font=dict(color="#f8fafc"),
+                showgrid=True,
+                gridcolor="#334155"
+            ),
+            yaxis=dict(
+                automargin=True,
+                tickfont=dict(color="#cbd5e1"),
+                title_font=dict(color="#f8fafc"),
+                showgrid=False
+            ),
+            coloraxis_colorbar=dict(
+                title=dict(text="Rating", font=dict(color="#f8fafc", size=10)),
+                tickfont=dict(color="#cbd5e1", size=9),
+                thickness=12,
+                len=0.8
+            ),
+            coloraxis_showscale=True,
             margin=dict(t=42, b=45, l=60, r=25)
         )
         st.plotly_chart(fig_cat_rating, use_container_width=True)
@@ -847,7 +873,7 @@ with tabs[4]:
             format_currency=False,
             show_legend=False
         )
-        fig_city_rating.update_yaxes(range=[1.0, 5.0], title="Mean Rating")
+        fig_city_rating.update_yaxes(range=[1.0, 5.0], title="Mean Rating", tickfont=dict(color="#cbd5e1"), title_font=dict(color="#f8fafc"))
         st.plotly_chart(fig_city_rating, use_container_width=True)
 
     with col_r4:
@@ -860,7 +886,7 @@ with tabs[4]:
             format_currency=False,
             show_legend=False
         )
-        fig_type_rating.update_yaxes(range=[1.0, 5.0], title="Mean Rating")
+        fig_type_rating.update_yaxes(range=[1.0, 5.0], title="Mean Rating", tickfont=dict(color="#cbd5e1"), title_font=dict(color="#f8fafc"))
         st.plotly_chart(fig_type_rating, use_container_width=True)
 
 

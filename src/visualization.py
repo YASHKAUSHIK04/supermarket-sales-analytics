@@ -29,19 +29,19 @@ CATEGORY_PALETTE = [
 
 
 def get_layout_theme(**overrides) -> dict:
-    """Return a clean copy of the layout theme with optional keyword overrides safely merged.
+    """Return a clean copy of the dark-mode compatible layout theme with optional keyword overrides safely merged.
 
     Prevents text collisions and TypeError: got multiple values for keyword argument.
-    Titles are anchored to the top-left, horizontal legends are placed cleanly below the plot area,
-    and margins are configured to prevent label clipping.
+    Titles are styled in crisp light white, horizontal legends are placed cleanly below the plot area,
+    and margins are configured to prevent label clipping in dark mode.
     """
     theme = {
-        "font": {"family": "Inter, Segoe UI, sans-serif", "size": 11, "color": "#2c3e50"},
+        "font": {"family": "Inter, Segoe UI, sans-serif", "size": 11, "color": "#e5e7eb"},
         "paper_bgcolor": "rgba(0,0,0,0)",
-        "plot_bgcolor": "rgba(248,249,250,0.8)",
-        "margin": {"l": 55, "r": 30, "t": 48, "b": 50},
+        "plot_bgcolor": "rgba(0,0,0,0)",
+        "margin": {"l": 55, "r": 35, "t": 48, "b": 50},
         "title": {
-            "font": {"size": 13, "color": "#0f172a"},
+            "font": {"size": 13, "color": "#f8fafc"},
             "x": 0.02,
             "xanchor": "left",
             "y": 0.98,
@@ -54,7 +54,7 @@ def get_layout_theme(**overrides) -> dict:
             "xanchor": "center",
             "x": 0.5,
             "title_text": "",
-            "font": {"size": 10}
+            "font": {"size": 10, "color": "#e5e7eb"}
         }
     }
     for key, val in overrides.items():
@@ -109,14 +109,33 @@ def plot_sales_trend(df_trend: pd.DataFrame, freq_name: str = "Month") -> go.Fig
         fig,
         title=dict(
             text=f"<b>Sales & Transaction Trend Over {freq_name}</b>",
+            font=dict(color="#f8fafc", size=13),
             x=0.02,
             y=0.98,
             xanchor="left",
             yanchor="top"
         ),
-        xaxis=dict(title="", automargin=True),
-        yaxis=dict(title="Sales (₹)", automargin=True, showgrid=True, gridcolor="#e2e8f0"),
-        yaxis2=dict(title="Transactions", automargin=True, overlaying="y", side="right", showgrid=False),
+        xaxis=dict(
+            title="",
+            automargin=True,
+            showgrid=False,
+            tickfont=dict(color="#cbd5e1")
+        ),
+        yaxis=dict(
+            title=dict(text="Sales (₹)", font=dict(color="#f8fafc")),
+            automargin=True,
+            showgrid=True,
+            gridcolor="#334155",
+            tickfont=dict(color="#cbd5e1")
+        ),
+        yaxis2=dict(
+            title=dict(text="Transactions", font=dict(color="#f8fafc")),
+            automargin=True,
+            overlaying="y",
+            side="right",
+            showgrid=False,
+            tickfont=dict(color="#cbd5e1")
+        ),
         hovermode="x unified",
         showlegend=True,
         legend=dict(
@@ -125,7 +144,7 @@ def plot_sales_trend(df_trend: pd.DataFrame, freq_name: str = "Month") -> go.Fig
             y=-0.18,
             xanchor="center",
             x=0.5,
-            font=dict(size=10)
+            font=dict(size=10, color="#e5e7eb")
         ),
         margin=dict(t=48, b=65, l=60, r=60)
     )
@@ -156,7 +175,7 @@ def plot_bar(
         elif (orientation == "h" and color_col == y_col) or (orientation == "v" and color_col == x_col):
             show_legend = False
         else:
-            show_legend = False
+            show_legend = True
 
     if orientation == "h":
         fig = px.bar(
@@ -172,6 +191,8 @@ def plot_bar(
             fig.update_traces(hovertemplate=f"<b>%{{y}}:</b> ₹%{{x:,.2f}}<extra></extra>")
         else:
             fig.update_traces(hovertemplate=f"<b>%{{y}}:</b> %{{x:,}}<extra></extra>")
+        fig.update_xaxes(automargin=True, showgrid=True, gridcolor="#334155", tickfont=dict(color="#cbd5e1"), title_font=dict(color="#f8fafc"))
+        fig.update_yaxes(automargin=True, showgrid=False, tickfont=dict(color="#cbd5e1"), title_font=dict(color="#f8fafc"))
     else:
         fig = px.bar(
             df,
@@ -186,22 +207,21 @@ def plot_bar(
             fig.update_traces(hovertemplate=f"<b>%{{x}}:</b> ₹%{{y:,.2f}}<extra></extra>")
         else:
             fig.update_traces(hovertemplate=f"<b>%{{x}}:</b> %{{y:,.2f}}<extra></extra>")
-
-    fig.update_xaxes(automargin=True)
-    fig.update_yaxes(automargin=True, showgrid=True, gridcolor="#e2e8f0")
+        fig.update_xaxes(automargin=True, showgrid=False, tickfont=dict(color="#cbd5e1"), title_font=dict(color="#f8fafc"))
+        fig.update_yaxes(automargin=True, showgrid=True, gridcolor="#334155", tickfont=dict(color="#cbd5e1"), title_font=dict(color="#f8fafc"))
 
     if show_legend:
         apply_layout_theme(
             fig,
             showlegend=True,
-            title=dict(text=f"<b>{title}</b>", x=0.02, y=0.98, xanchor="left", yanchor="top"),
+            title=dict(text=f"<b>{title}</b>", font=dict(color="#f8fafc", size=13), x=0.02, y=0.98, xanchor="left", yanchor="top"),
             legend=dict(
                 orientation="h",
                 yanchor="top",
                 y=-0.22,
                 xanchor="center",
                 x=0.5,
-                font=dict(size=10)
+                font=dict(size=10, color="#e5e7eb")
             ),
             margin=dict(t=48, b=70, l=60, r=25)
         )
@@ -209,7 +229,7 @@ def plot_bar(
         apply_layout_theme(
             fig,
             showlegend=False,
-            title=dict(text=f"<b>{title}</b>", x=0.02, y=0.98, xanchor="left", yanchor="top"),
+            title=dict(text=f"<b>{title}</b>", font=dict(color="#f8fafc", size=13), x=0.02, y=0.98, xanchor="left", yanchor="top"),
             margin=dict(t=42, b=45, l=60, r=25)
         )
 
@@ -217,9 +237,10 @@ def plot_bar(
 
 
 def plot_donut(df: pd.DataFrame, names_col: str, values_col: str, title: str) -> go.Figure:
-    """Generate clean donut chart with percentage labels and isolated bottom legend.
+    """Generate clean donut chart with visible labels, percentages, and bottom legend.
     
-    Prevents text collision inside slices and title collisions at the top.
+    Ensures high contrast on dark themes, preserves slice labels and percentages,
+    and removes any stray Cartesian axes.
     """
     if df.empty:
         return go.Figure()
@@ -234,13 +255,27 @@ def plot_donut(df: pd.DataFrame, names_col: str, values_col: str, title: str) ->
     )
     fig.update_traces(
         textposition="inside",
-        textinfo="percent",
+        textinfo="label+percent",
         insidetextorientation="horizontal",
+        textfont=dict(size=11, color="#ffffff"),
         hovertemplate="<b>%{label}</b><br>Sales: ₹%{value:,.2f}<br>Share: %{percent}<extra></extra>"
+    )
+    # Explicitly clear Cartesian axes to eliminate any ghost or stray axis labels (e.g. Transactions)
+    fig.update_layout(
+        xaxis=dict(visible=False, showticklabels=False),
+        yaxis=dict(visible=False, showticklabels=False),
+        yaxis2=dict(visible=False, showticklabels=False)
     )
     apply_layout_theme(
         fig,
-        title=dict(text=f"<b>{title}</b>", x=0.02, y=0.98, xanchor="left", yanchor="top"),
+        title=dict(
+            text=f"<b>{title}</b>",
+            font=dict(color="#f8fafc", size=13),
+            x=0.5,
+            y=0.98,
+            xanchor="center",
+            yanchor="top"
+        ),
         showlegend=True,
         legend=dict(
             orientation="h",
@@ -248,7 +283,7 @@ def plot_donut(df: pd.DataFrame, names_col: str, values_col: str, title: str) ->
             y=-0.12,
             xanchor="center",
             x=0.5,
-            font=dict(size=10)
+            font=dict(size=10, color="#e5e7eb")
         ),
         margin=dict(t=48, b=60, l=20, r=20)
     )
@@ -277,12 +312,25 @@ def plot_scatter_quadrant(df: pd.DataFrame) -> go.Figure:
     fig.update_traces(
         hovertemplate="<b>%{hovertext}</b><br>Unit Price: ₹%{x:.2f}<br>Qty Sold: %{y}<extra></extra>"
     )
-    fig.update_xaxes(automargin=True, showgrid=True, gridcolor="#e2e8f0")
-    fig.update_yaxes(automargin=True, showgrid=True, gridcolor="#e2e8f0")
+    fig.update_xaxes(
+        automargin=True,
+        showgrid=True,
+        gridcolor="#334155",
+        tickfont=dict(color="#cbd5e1"),
+        title_font=dict(color="#f8fafc")
+    )
+    fig.update_yaxes(
+        automargin=True,
+        showgrid=True,
+        gridcolor="#334155",
+        tickfont=dict(color="#cbd5e1"),
+        title_font=dict(color="#f8fafc")
+    )
     apply_layout_theme(
         fig,
         title=dict(
             text="<b>Product Matrix: Unit Price vs Quantity Sold</b>",
+            font=dict(color="#f8fafc", size=13),
             x=0.02,
             y=0.98,
             xanchor="left",
@@ -295,7 +343,7 @@ def plot_scatter_quadrant(df: pd.DataFrame) -> go.Figure:
             y=-0.22,
             xanchor="center",
             x=0.5,
-            font=dict(size=10)
+            font=dict(size=10, color="#e5e7eb")
         ),
         margin=dict(t=48, b=80, l=60, r=30)
     )
@@ -320,14 +368,28 @@ def plot_rating_histogram(df: pd.DataFrame) -> go.Figure:
         line_dash="dash",
         line_color=ACCENT_COLOR,
         annotation_text=f"Mean: {avg_rating:.2f}",
-        annotation_position="top right"
+        annotation_position="top right",
+        annotation_font=dict(color="#f8fafc", size=11)
     )
-    fig.update_xaxes(title="Rating (1 to 5)", automargin=True)
-    fig.update_yaxes(title="Number of Reviews", automargin=True, showgrid=True, gridcolor="#e2e8f0")
+    fig.update_xaxes(
+        title="Rating (1 to 5)",
+        automargin=True,
+        tickfont=dict(color="#cbd5e1"),
+        title_font=dict(color="#f8fafc")
+    )
+    fig.update_yaxes(
+        title="Number of Reviews",
+        automargin=True,
+        showgrid=True,
+        gridcolor="#334155",
+        tickfont=dict(color="#cbd5e1"),
+        title_font=dict(color="#f8fafc")
+    )
     apply_layout_theme(
         fig,
         title=dict(
             text=f"<b>Customer Rating Distribution</b> (Mean = {avg_rating:.2f} / 5.0)",
+            font=dict(color="#f8fafc", size=13),
             x=0.02,
             y=0.98,
             xanchor="left",
@@ -359,11 +421,28 @@ def plot_grouped_bar(
         color_discrete_sequence=[PRIMARY_COLOR, ACCENT_COLOR, SECONDARY_COLOR],
         title=f"<b>{title}</b>"
     )
-    fig.update_xaxes(automargin=True)
-    fig.update_yaxes(automargin=True, showgrid=True, gridcolor="#e2e8f0")
+    fig.update_xaxes(
+        automargin=True,
+        tickfont=dict(color="#cbd5e1"),
+        title_font=dict(color="#f8fafc")
+    )
+    fig.update_yaxes(
+        automargin=True,
+        showgrid=True,
+        gridcolor="#334155",
+        tickfont=dict(color="#cbd5e1"),
+        title_font=dict(color="#f8fafc")
+    )
     apply_layout_theme(
         fig,
-        title=dict(text=f"<b>{title}</b>", x=0.02, y=0.98, xanchor="left", yanchor="top"),
+        title=dict(
+            text=f"<b>{title}</b>",
+            font=dict(color="#f8fafc", size=13),
+            x=0.02,
+            y=0.98,
+            xanchor="left",
+            yanchor="top"
+        ),
         showlegend=True,
         legend=dict(
             orientation="h",
@@ -371,7 +450,7 @@ def plot_grouped_bar(
             y=-0.20,
             xanchor="center",
             x=0.5,
-            font=dict(size=10)
+            font=dict(size=10, color="#e5e7eb")
         ),
         margin=dict(t=48, b=65, l=60, r=30)
     )
