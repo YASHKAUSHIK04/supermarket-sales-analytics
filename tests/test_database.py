@@ -30,12 +30,15 @@ from src.database import (
     get_all_sales_df,
     import_sales_dataframe,
     get_products_df,
+    get_all_products,
     create_product,
     update_product,
     delete_product,
     get_categories_list,
     record_stock_movement,
+    StockMovementResult,
     get_inventory_movements_df,
+    get_inventory_movements,
     log_anomaly,
     get_anomalies_df,
     resolve_anomaly,
@@ -321,6 +324,210 @@ class TestDatabaseEngine(unittest.TestCase):
         self.assertEqual(len(df_reports), 1)
         self.assertEqual(df_reports.iloc[0]["Type"], "PDF_EXECUTIVE")
         self.assertEqual(df_reports.iloc[0]["Records"], 500)
+
+    def test_get_all_products_contract_and_dual_keys(self):
+        """Regression test: verify get_all_products() provides canonical snake_case and title-case keys."""
+        seed_database_if_empty(db_path=self.db_path)
+        prods = get_all_products(db_path=self.db_path)
+        self.assertGreater(len(prods), 0)
+
+        for p in prods:
+            # Canonical snake_case keys (prevent KeyError: 'product_name', 'product_id', etc.)
+            self.assertIn("product_id", p)
+            self.assertIsInstance(p["product_id"], int)
+            self.assertGreater(p["product_id"], 0)
+
+            self.assertIn("product_name", p)
+            self.assertIsInstance(p["product_name"], str)
+            self.assertGreater(len(p["product_name"]), 0)
+
+            self.assertIn("category_name", p)
+            self.assertIsInstance(p["category_name"], str)
+
+            self.assertIn("unit_price", p)
+            self.assertIsInstance(p["unit_price"], (int, float))
+
+            self.assertIn("selling_price", p)
+            self.assertEqual(p["selling_price"], p["unit_price"])
+
+            self.assertIn("current_stock", p)
+            self.assertIsInstance(p["current_stock"], int)
+
+            self.assertIn("reorder_threshold", p)
+            self.assertIn("safety_stock_level", p)
+            self.assertEqual(p["reorder_threshold"], p["safety_stock_level"])
+
+            self.assertIn("target_stock", p)
+            self.assertIn("stock_status", p)
+            self.assertIn(p["stock_status"], ("HEALTHY", "LOW_STOCK", "OUT_OF_STOCK"))
+
+            self.assertIn("is_active", p)
+            self.assertIn(p["is_active"], (0, 1))
+
+            self.assertIn("product_sku", p)
+            self.assertTrue(p["product_sku"].startswith("SKU-"))
+
+            # Title Case display keys for backward compatibility
+            self.assertIn("Product ID", p)
+            self.assertEqual(p["Product ID"], p["product_id"])
+
+            self.assertIn("Product Name", p)
+            self.assertEqual(p["Product Name"], p["product_name"])
+
+            self.assertIn("Category", p)
+            self.assertEqual(p["Category"], p["category_name"])
+
+            self.assertIn("Unit Price (₹)", p)
+            self.assertEqual(p["Unit Price (₹)"], p["unit_price"])
+
+            self.assertIn("Current Stock", p)
+            self.assertEqual(p["Current Stock"], p["current_stock"])
+
+    def test_get_all_products_empty_database(self):
+        """Regression test: empty database returns empty list without crashing."""
+        empty_db = self.test_dir / "empty_catalog.db"
+        if empty_db.exists():
+            empty_db.unlink()
+        init_database(empty_db)
+
+        prods = get_all_products(db_path=empty_db)
+        self.assertEqual(prods, [])
+
+    def test_record_stock_movement_result_contract(self):
+        """Regression test: record_stock_movement returns StockMovementResult satisfying int and dict callers."""
+        pid = create_product(
+            product_name="Almond Milk 1L",
+            category_name="Beverages",
+            unit_price=150.0,
+            reorder_threshold=15,
+            target_stock=60,
+            initial_stock=20,
+            db_path=self.db_path
+        )
+
+        res = record_stock_movement(
+            product_id=pid,
+            movement_type="RECEIPT",
+            quantity_change=40,
+            reference_note="PO #9921",
+            db_path=self.db_path
+        )
+
+        # 1. Compatible as an integer movement ID
+        self.assertIsInstance(res, int)
+        self.assertGreater(res, 0)
+        self.assertEqual(int(res), res.movement_id)
+
+        # 2. Compatible as a dictionary result
+        self.assertTrue(res["success"])
+        self.assertEqual(res["new_stock_level"], 60)
+        self.assertEqual(res["product_id"], pid)
+        self.assertEqual(res["quantity_change"], 40)
+        self.assertIsNone(res.get("error"))
+        self.assertIn("success", res)
+        self.assertIn("new_stock_level", res)
+
+        # 3. Invalid key access raises KeyError
+        with self.assertRaises(KeyError):
+            _ = res["non_existent_key"]
+
+    def test_stock_receipt_flow_and_ledger_integrity(self):
+        """Regression test: complete stock receipt updates stock balance and records immutable ledger audit."""
+        pid = create_product(
+            product_name="Cold Pressed Coconut Oil",
+            category_name="Food & Beverages",
+            unit_price=350.0,
+            reorder_threshold=10,
+            target_stock=50,
+            initial_stock=15,
+            db_path=self.db_path
+        )
+
+        # Receive 25 units
+        res = record_stock_movement(
+            product_id=pid,
+            movement_type="RECEIPT",
+            quantity_change=25,
+            reference_note="Supplier batch delivery",
+            db_path=self.db_path
+        )
+        self.assertEqual(res["new_stock_level"], 40)
+
+        # Verify get_all_products() reflects updated stock
+        all_prods = get_all_products(db_path=self.db_path)
+        target = next((p for p in all_prods if p["product_id"] == pid), None)
+        self.assertIsNotNone(target)
+        self.assertEqual(target["current_stock"], 40)
+        self.assertEqual(target["Current Stock"], 40)
+
+        # Verify ledger has immutable audit record
+        ledger = get_inventory_movements_df(product_id=pid, db_path=self.db_path)
+        receipt_rows = ledger[ledger["Action"] == "RECEIPT"]
+        self.assertEqual(len(receipt_rows), 1)
+        self.assertEqual(int(receipt_rows.iloc[0]["Change"]), 25)
+        self.assertEqual(int(receipt_rows.iloc[0]["Balance After"]), 40)
+
+        # Verify get_inventory_movements() list of dicts supports canonical snake_case
+        movements_list = get_inventory_movements(product_id=pid, db_path=self.db_path)
+        self.assertEqual(len(movements_list), 2)  # INITIAL + RECEIPT
+        latest_mov = movements_list[0]
+        self.assertEqual(latest_mov["movement_type"], "RECEIPT")
+        self.assertEqual(latest_mov["quantity_change"], 25)
+        self.assertEqual(latest_mov["balance_after"], 40)
+
+        # Verify non-positive receipt quantity is rejected
+        with self.assertRaises(ValueError):
+            record_stock_movement(
+                product_id=pid,
+                movement_type="RECEIPT",
+                quantity_change=0,
+                db_path=self.db_path
+            )
+
+        with self.assertRaises(ValueError):
+            record_stock_movement(
+                product_id=pid,
+                movement_type="RECEIPT",
+                quantity_change=-5,
+                db_path=self.db_path
+            )
+
+    def test_create_product_and_update_product_parameter_flexibility(self):
+        """Regression test: create_product and update_product handle parameter aliases and partial updates."""
+        # Create using aliases: name, category, selling_price, safety_stock
+        pid = create_product(
+            name="Artisan Sourdough Loaf",
+            category="Bakery",
+            selling_price=180.0,
+            safety_stock=15,
+            initial_stock=30,
+            db_path=self.db_path
+        )
+        self.assertGreater(pid, 0)
+
+        prods = get_all_products(db_path=self.db_path)
+        loaf = next((p for p in prods if p["product_id"] == pid), None)
+        self.assertIsNotNone(loaf)
+        self.assertEqual(loaf["product_name"], "Artisan Sourdough Loaf")
+        self.assertEqual(loaf["unit_price"], 180.0)
+        self.assertEqual(loaf["safety_stock_level"], 15)
+        self.assertEqual(loaf["current_stock"], 30)
+
+        # Partial update: update price and safety stock only
+        ok = update_product(
+            product_id=pid,
+            selling_price=195.0,
+            safety_stock_level=20,
+            db_path=self.db_path
+        )
+        self.assertTrue(ok)
+
+        prods_upd = get_all_products(db_path=self.db_path)
+        loaf_upd = next((p for p in prods_upd if p["product_id"] == pid), None)
+        self.assertEqual(loaf_upd["product_name"], "Artisan Sourdough Loaf")
+        self.assertEqual(loaf_upd["category_name"], "Bakery")
+        self.assertEqual(loaf_upd["unit_price"], 195.0)
+        self.assertEqual(loaf_upd["safety_stock_level"], 20)
 
 
 if __name__ == "__main__":

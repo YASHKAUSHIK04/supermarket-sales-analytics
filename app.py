@@ -1226,25 +1226,45 @@ with tabs[6]:
         st.caption("Record incoming stock delivery from suppliers into the inventory ledger:")
         products_list = get_all_products()
         if products_list:
-            prod_names = [p["product_name"] for p in products_list]
-            selected_prod_for_rcv = st.selectbox("Select Product to Receive:", prod_names, key="rcv_prod_sel")
-            rcv_qty = st.number_input("Shipment Quantity (Units):", min_value=1, max_value=1000, value=25, key="rcv_qty_input")
-            if st.button("📦 Confirm Stock Receipt", use_container_width=True):
-                target_prod = next((p for p in products_list if p["product_name"] == selected_prod_for_rcv), None)
-                if target_prod:
-                    res = record_stock_movement(
-                        product_id=target_prod["product_id"],
-                        movement_type="receipt",
-                        quantity_change=rcv_qty,
-                        reference_reason="Supplier purchase order delivery"
-                    )
-                    if res["success"]:
-                        st.success(f"Successfully received {rcv_qty} units of '{selected_prod_for_rcv}'! New stock balance: {res['new_stock_level']}.")
-                        st.rerun()
+            prod_lookup = {
+                int(p["product_id"]): p
+                for p in products_list
+                if p.get("product_id") is not None and (p.get("product_name") or p.get("Product Name"))
+            }
+            if prod_lookup:
+                prod_ids = list(prod_lookup.keys())
+                selected_prod_id = st.selectbox(
+                    "Select Product to Receive:",
+                    options=prod_ids,
+                    format_func=lambda pid: f"{prod_lookup[pid].get('product_name', prod_lookup[pid].get('Product Name'))} (ID: #{pid} | Stock: {prod_lookup[pid].get('current_stock', 0)} | {prod_lookup[pid].get('category_name', prod_lookup[pid].get('Category', ''))})",
+                    key="rcv_prod_sel"
+                )
+                rcv_qty = st.number_input("Shipment Quantity (Units):", min_value=1, max_value=10000, value=25, step=1, key="rcv_qty_input")
+                if st.button("📦 Confirm Stock Receipt", use_container_width=True):
+                    if rcv_qty <= 0:
+                        st.error("Shipment quantity must be a positive integer greater than zero.")
                     else:
-                        st.error(f"Stock receipt failed: {res.get('error')}")
+                        target_prod = prod_lookup.get(selected_prod_id)
+                        if target_prod:
+                            try:
+                                res = record_stock_movement(
+                                    product_id=target_prod["product_id"],
+                                    movement_type="RECEIPT",
+                                    quantity_change=int(rcv_qty),
+                                    reference_note="Supplier purchase order delivery"
+                                )
+                                new_stock = res["new_stock_level"] if hasattr(res, "__getitem__") else getattr(res, "new_balance", "Updated")
+                                p_display_name = target_prod.get("product_name") or target_prod.get("Product Name", "Product")
+                                st.success(f"Successfully received {rcv_qty:,} units of '{p_display_name}'! New stock balance: {new_stock}.")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Stock receipt failed: {e}")
+                        else:
+                            st.error("Selected product could not be found in catalog.")
+            else:
+                st.warning("No valid product records found. Add products in Tab 10 (System Architecture & SQLite Database).")
         else:
-            st.caption("No products currently available in the database to receive stock.")
+            st.info("No products currently available in the database to receive stock. You can add new products in Tab 10 (System Architecture & SQLite Database).")
 
     with col_act2:
         st.markdown("#### 🔄 Reconcile Sales Against Inventory")
@@ -1491,7 +1511,21 @@ with tabs[9]:
         st.markdown("#### Master Product Catalog")
         all_prods = get_all_products()
         if all_prods:
-            st.dataframe(pd.DataFrame(all_prods), use_container_width=True, hide_index=True)
+            prods_table_df = pd.DataFrame([{
+                "Product ID": p.get("product_id"),
+                "SKU": p.get("product_sku"),
+                "Product Name": p.get("product_name"),
+                "Category": p.get("category_name"),
+                "Unit Price (₹)": p.get("unit_price"),
+                "Current Stock": p.get("current_stock"),
+                "Safety Stock": p.get("safety_stock_level"),
+                "Target Stock": p.get("target_stock"),
+                "Stock Status": p.get("stock_status"),
+                "Active": "Yes" if p.get("is_active") else "No"
+            } for p in all_prods])
+            st.dataframe(prods_table_df, use_container_width=True, hide_index=True)
+        else:
+            st.info("Product catalog is empty. Add a product below to get started.")
 
         col_prod_add, col_prod_upd = st.columns(2)
         with col_prod_add:
@@ -1499,7 +1533,7 @@ with tabs[9]:
                 new_sku = st.text_input("Product SKU Code:", value="SKU-NEW-01", key="add_sku")
                 new_name = st.text_input("Product Name:", value="Premium Greek Yogurt", key="add_name")
                 cats = get_all_categories()
-                cat_choices = {c["category_name"]: c["category_id"] for c in cats}
+                cat_choices = {c["category_name"]: c["category_id"] for c in cats} if cats else {"General": 1}
                 sel_cat_name = st.selectbox("Category:", list(cat_choices.keys()), key="add_cat")
                 new_cost = st.number_input("Unit Cost ($):", min_value=0.01, value=5.0, step=0.5, key="add_cost")
                 new_price = st.number_input("Selling Price ($):", min_value=0.01, value=9.5, step=0.5, key="add_price")
@@ -1507,39 +1541,55 @@ with tabs[9]:
                 new_stock = st.number_input("Initial Warehouse Stock:", min_value=0, value=60, key="add_stock")
 
                 if st.button("Save New Product", use_container_width=True):
-                    pid = create_product(
-                        sku=new_sku,
-                        name=new_name,
-                        category_id=cat_choices[sel_cat_name],
-                        unit_cost=new_cost,
-                        selling_price=new_price,
-                        safety_stock=new_safety,
-                        initial_stock=new_stock
-                    )
-                    st.success(f"Product created successfully with ID #{pid}!")
-                    st.rerun()
+                    try:
+                        pid = create_product(
+                            product_name=new_name.strip(),
+                            category_name=sel_cat_name,
+                            unit_price=float(new_price),
+                            reorder_threshold=int(new_safety),
+                            target_stock=max(int(new_safety) * 3, int(new_stock)),
+                            initial_stock=int(new_stock)
+                        )
+                        st.success(f"Product '{new_name}' created successfully with ID #{pid}!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Failed to create product: {e}")
 
         with col_prod_upd:
             with st.expander("✏️ Update Product Pricing or Stock Thresholds", expanded=False):
                 if all_prods:
-                    prod_map = {f"{p['product_name']} ({p['product_sku']})": p for p in all_prods}
-                    sel_p_label = st.selectbox("Select Product to Update:", list(prod_map.keys()), key="upd_p_sel")
-                    target = prod_map[sel_p_label]
-
-                    upd_price = st.number_input("New Selling Price ($):", value=float(target["selling_price"]), key="upd_price")
-                    upd_safety = st.number_input("New Safety Stock:", value=int(target["safety_stock_level"]), key="upd_safety")
-                    upd_active = st.checkbox("Active Status", value=bool(target["is_active"]), key="upd_active")
-
-                    if st.button("Update Product Details", use_container_width=True):
-                        ok = update_product(
-                            product_id=target["product_id"],
-                            selling_price=upd_price,
-                            safety_stock_level=upd_safety,
-                            is_active=1 if upd_active else 0
+                    prod_map = {int(p['product_id']): p for p in all_prods if p.get('product_id') is not None}
+                    if prod_map:
+                        sel_pid = st.selectbox(
+                            "Select Product to Update:",
+                            options=list(prod_map.keys()),
+                            format_func=lambda pid: f"{prod_map[pid].get('product_name', 'Unknown')} (#{pid})",
+                            key="upd_p_sel"
                         )
-                        if ok:
-                            st.success(f"Updated product '{target['product_name']}'!")
-                            st.rerun()
+                        target = prod_map[sel_pid]
+
+                        upd_price = st.number_input("New Selling Price ($):", min_value=0.01, value=float(target.get("unit_price", 10.0)), key="upd_price")
+                        upd_safety = st.number_input("New Safety Stock:", min_value=1, value=int(target.get("reorder_threshold", target.get("safety_stock_level", 20))), key="upd_safety")
+                        upd_active = st.checkbox("Active Status", value=bool(target.get("is_active", 1)), key="upd_active")
+
+                        if st.button("Update Product Details", use_container_width=True):
+                            try:
+                                ok = update_product(
+                                    product_id=target["product_id"],
+                                    product_name=target.get("product_name"),
+                                    category_name=target.get("category_name"),
+                                    unit_price=float(upd_price),
+                                    reorder_threshold=int(upd_safety),
+                                    target_stock=int(target.get("target_stock", 100)),
+                                    is_active=1 if upd_active else 0
+                                )
+                                if ok:
+                                    st.success(f"Updated product '{target.get('product_name')}'!")
+                                    st.rerun()
+                                else:
+                                    st.error("Product update failed.")
+                            except Exception as e:
+                                st.error(f"Update failed: {e}")
 
     elif db_crud_choice == "Inventory Ledger Audit":
         st.markdown("#### Append-Only Inventory Ledger (`inventory_movements`)")

@@ -538,48 +538,90 @@ def get_products_df(active_only: bool = True, db_path: Optional[Union[str, Path]
 
 
 def create_product(
-    product_name: str,
-    category_name: str,
-    unit_price: float,
+    product_name: Optional[str] = None,
+    category_name: Optional[str] = None,
+    unit_price: Optional[float] = None,
     reorder_threshold: int = 20,
     target_stock: int = 100,
     initial_stock: int = 50,
-    db_path: Optional[Union[str, Path]] = None
+    db_path: Optional[Union[str, Path]] = None,
+    **kwargs: Any
 ) -> int:
     """Create a new product in the catalog with initial stock and ledger entry.
 
+    Supports both standard and alternative parameter names (name, category, category_id,
+    selling_price, safety_stock, etc.) for robust cross-module compatibility.
     Returns the new product_id.
     """
     init_database(db_path)
+
+    # Resolve product_name aliases
+    if not product_name:
+        product_name = kwargs.get("name") or kwargs.get("product") or kwargs.get("title")
+    if not product_name or not str(product_name).strip():
+        raise ValueError("Product name cannot be empty.")
+    product_name = str(product_name).strip()
+
+    # Resolve unit_price aliases
+    if unit_price is None:
+        unit_price = kwargs.get("selling_price", kwargs.get("price", kwargs.get("unit_cost", 10.0)))
+    unit_price = float(unit_price)
+
+    # Resolve reorder_threshold aliases
+    if "safety_stock" in kwargs or "safety_stock_level" in kwargs:
+        reorder_threshold = int(kwargs.get("safety_stock", kwargs.get("safety_stock_level", reorder_threshold)))
+    else:
+        reorder_threshold = int(reorder_threshold)
+
+    # Resolve initial_stock and target_stock
+    initial_stock = int(kwargs.get("initial_stock", initial_stock))
+    target_stock = int(kwargs.get("target_stock", max(target_stock, reorder_threshold * 3)))
+
     conn = get_db_connection(db_path)
     cursor = conn.cursor()
     try:
         conn.execute("BEGIN TRANSACTION;")
 
-        cursor.execute("SELECT category_id FROM categories WHERE category_name = ? COLLATE NOCASE;", (category_name.strip(),))
-        cat_row = cursor.fetchone()
-        if cat_row:
-            cat_id = cat_row[0]
-        else:
-            cursor.execute("INSERT INTO categories (category_name, description) VALUES (?, ?);", (category_name.strip(), "User-created category"))
-            cat_id = cursor.lastrowid
+        # Resolve category_id / category_name
+        cat_id = None
+        if not category_name:
+            if "category_id" in kwargs and kwargs["category_id"]:
+                cursor.execute("SELECT category_id, category_name FROM categories WHERE category_id = ?;", (int(kwargs["category_id"]),))
+                cat_row = cursor.fetchone()
+                if cat_row:
+                    cat_id = cat_row[0]
+                    category_name = cat_row[1]
+            elif "category" in kwargs:
+                category_name = str(kwargs["category"]).strip()
+
+        if not category_name:
+            category_name = "General"
+
+        if cat_id is None:
+            cursor.execute("SELECT category_id FROM categories WHERE category_name = ? COLLATE NOCASE;", (category_name.strip(),))
+            cat_row = cursor.fetchone()
+            if cat_row:
+                cat_id = cat_row[0]
+            else:
+                cursor.execute("INSERT INTO categories (category_name, description) VALUES (?, ?);", (category_name.strip(), "User-created category"))
+                cat_id = cursor.lastrowid
 
         cursor.execute("""
         INSERT INTO products (product_name, category_id, unit_price, reorder_threshold, target_stock)
         VALUES (?, ?, ?, ?, ?);
-        """, (product_name.strip(), cat_id, float(unit_price), int(reorder_threshold), int(target_stock)))
+        """, (product_name, cat_id, unit_price, reorder_threshold, target_stock))
         new_pid = cursor.lastrowid
 
         cursor.execute("""
         INSERT INTO inventory_stock (product_id, current_quantity, last_restocked_date)
         VALUES (?, ?, date('now'));
-        """, (new_pid, int(initial_stock)))
+        """, (new_pid, initial_stock))
 
         cursor.execute("""
         INSERT INTO inventory_movements (
             product_id, movement_date, movement_type, quantity_change, balance_after, reference_note
         ) VALUES (?, date('now'), 'INITIAL', ?, ?, 'Initial product creation intake');
-        """, (new_pid, int(initial_stock), int(initial_stock)))
+        """, (new_pid, initial_stock, initial_stock))
 
         conn.commit()
         return new_pid
@@ -592,28 +634,66 @@ def create_product(
 
 def update_product(
     product_id: int,
-    product_name: str,
-    category_name: str,
-    unit_price: float,
-    reorder_threshold: int,
-    target_stock: int,
-    is_active: int = 1,
-    db_path: Optional[Union[str, Path]] = None
+    product_name: Optional[str] = None,
+    category_name: Optional[str] = None,
+    unit_price: Optional[float] = None,
+    reorder_threshold: Optional[int] = None,
+    target_stock: Optional[int] = None,
+    is_active: Optional[int] = None,
+    db_path: Optional[Union[str, Path]] = None,
+    **kwargs: Any
 ) -> bool:
-    """Update catalog product metadata, pricing, and reorder policies."""
+    """Update catalog product metadata, pricing, and reorder policies.
+
+    Accepts partial updates and parameter aliases (selling_price, safety_stock, etc.).
+    Preserves existing values for unsupplied fields.
+    """
     init_database(db_path)
+
+    # Resolve aliases
+    if product_name is None:
+        product_name = kwargs.get("name", kwargs.get("product"))
+    if unit_price is None:
+        unit_price = kwargs.get("selling_price", kwargs.get("price"))
+    if reorder_threshold is None:
+        reorder_threshold = kwargs.get("safety_stock", kwargs.get("safety_stock_level"))
+
     conn = get_db_connection(db_path)
     cursor = conn.cursor()
     try:
         conn.execute("BEGIN TRANSACTION;")
 
-        cursor.execute("SELECT category_id FROM categories WHERE category_name = ? COLLATE NOCASE;", (category_name.strip(),))
-        cat_row = cursor.fetchone()
-        if cat_row:
-            cat_id = cat_row[0]
+        # Fetch existing product attributes
+        cursor.execute("""
+        SELECT p.product_name, c.category_name, p.category_id, p.unit_price, p.reorder_threshold, p.target_stock, p.is_active
+        FROM products p
+        JOIN categories c ON p.category_id = c.category_id
+        WHERE p.product_id = ?;
+        """, (int(product_id),))
+        row = cursor.fetchone()
+        if not row:
+            conn.rollback()
+            return False
+
+        cur_name, cur_cat_name, cur_cat_id, cur_price, cur_reorder, cur_target, cur_active = row
+
+        eff_name = str(product_name).strip() if product_name is not None and str(product_name).strip() else cur_name
+        eff_price = float(unit_price) if unit_price is not None else float(cur_price)
+        eff_reorder = int(reorder_threshold) if reorder_threshold is not None else int(cur_reorder)
+        eff_target = int(target_stock) if target_stock is not None else int(cur_target)
+        eff_active = int(is_active) if is_active is not None else int(cur_active)
+
+        if category_name is not None and str(category_name).strip():
+            cat_str = str(category_name).strip()
+            cursor.execute("SELECT category_id FROM categories WHERE category_name = ? COLLATE NOCASE;", (cat_str,))
+            cat_row = cursor.fetchone()
+            if cat_row:
+                eff_cat_id = cat_row[0]
+            else:
+                cursor.execute("INSERT INTO categories (category_name, description) VALUES (?, ?);", (cat_str, "Updated category"))
+                eff_cat_id = cursor.lastrowid
         else:
-            cursor.execute("INSERT INTO categories (category_name, description) VALUES (?, ?);", (category_name.strip(), "Updated category"))
-            cat_id = cursor.lastrowid
+            eff_cat_id = cur_cat_id
 
         cursor.execute("""
         UPDATE products
@@ -625,10 +705,8 @@ def update_product(
             is_active = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE product_id = ?;
-        """, (
-            product_name.strip(), cat_id, float(unit_price),
-            int(reorder_threshold), int(target_stock), int(is_active), int(product_id)
-        ))
+        """, (eff_name, eff_cat_id, eff_price, eff_reorder, eff_target, eff_active, int(product_id)))
+
         conn.commit()
         return cursor.rowcount > 0
     except Exception:
@@ -666,6 +744,60 @@ def get_categories_list(db_path: Optional[Union[str, Path]] = None) -> List[str]
         conn.close()
 
 
+class StockMovementResult(int):
+    """Integer subclass holding stock movement ID, also supporting dictionary-style access.
+
+    Ensures 100% compatibility:
+    - Callers expecting an int (e.g. mov_id = record_stock_movement(...)) get an int > 0.
+    - Callers expecting a result dictionary (e.g. res['success'], res['new_stock_level']) get dict access.
+    """
+    def __new__(
+        cls,
+        movement_id: int,
+        new_balance: int = 0,
+        success: bool = True,
+        product_id: int = 0,
+        quantity_change: int = 0,
+        error: Optional[str] = None
+    ):
+        obj = super().__new__(cls, movement_id)
+        obj.movement_id = int(movement_id)
+        obj.new_balance = int(new_balance)
+        obj.new_stock_level = int(new_balance)
+        obj.success = bool(success)
+        obj.product_id = int(product_id)
+        obj.quantity_change = int(quantity_change)
+        obj.error = error
+        return obj
+
+    def __getitem__(self, item: str) -> Any:
+        if item == "success":
+            return self.success
+        if item in ("new_stock_level", "new_balance", "balance_after"):
+            return self.new_balance
+        if item in ("movement_id", "id"):
+            return self.movement_id
+        if item == "product_id":
+            return self.product_id
+        if item in ("quantity_change", "qty"):
+            return self.quantity_change
+        if item == "error":
+            return self.error
+        raise KeyError(item)
+
+    def get(self, item: str, default: Any = None) -> Any:
+        try:
+            return self[item]
+        except KeyError:
+            return default
+
+    def __contains__(self, item: str) -> bool:
+        return item in (
+            "success", "new_stock_level", "new_balance", "balance_after",
+            "movement_id", "id", "product_id", "quantity_change", "qty", "error"
+        )
+
+
 def record_stock_movement(
     product_id: int,
     movement_type: str,
@@ -673,12 +805,12 @@ def record_stock_movement(
     reference_note: str = "",
     db_path: Optional[Union[str, Path]] = None,
     reference_reason: Optional[str] = None
-) -> int:
+) -> StockMovementResult:
     """Record an inventory adjustment/receipt in the immutable ledger.
 
     Strictly prevents negative stock balances by validating current balance.
     Updates the inventory_stock snapshot atomically.
-    Returns movement_id.
+    Returns StockMovementResult (acts as both int movement_id and dict result).
     """
     effective_note = reference_reason if reference_reason is not None else reference_note
     init_database(db_path)
@@ -694,6 +826,18 @@ def record_stock_movement(
 
         current_balance = int(row[0])
         qty_change = int(quantity_change)
+
+        mov_type = str(movement_type).strip().upper()
+        if mov_type == "RECEIPT" and qty_change <= 0:
+            raise ValueError(f"Stock receipt quantity must be positive, got {qty_change}.")
+
+        if mov_type in ["SALE", "SALE_DEDUCTION"]:
+            mov_type = "SALE_DEDUCTION"
+            if qty_change > 0:
+                qty_change = -qty_change
+        elif mov_type in ["ADJUSTMENT", "ADJUST"]:
+            mov_type = "ADJUSTMENT_ADD" if qty_change >= 0 else "ADJUSTMENT_SUB"
+
         new_balance = current_balance + qty_change
 
         if new_balance < 0:
@@ -701,12 +845,6 @@ def record_stock_movement(
                 f"Invalid inventory deduction: Current stock is {current_balance}, but deduction of "
                 f"{abs(qty_change)} would result in negative balance {new_balance}."
             )
-
-        mov_type = str(movement_type).strip().upper()
-        if mov_type in ["SALE", "SALE_DEDUCTION"]:
-            mov_type = "SALE_DEDUCTION"
-        elif mov_type in ["ADJUSTMENT", "ADJUST"]:
-            mov_type = "ADJUSTMENT_ADD" if qty_change >= 0 else "ADJUSTMENT_SUB"
 
         cursor.execute("""
         INSERT INTO inventory_movements (
@@ -724,7 +862,13 @@ def record_stock_movement(
         """, (new_balance, qty_change, int(product_id)))
 
         conn.commit()
-        return mov_id
+        return StockMovementResult(
+            movement_id=mov_id,
+            new_balance=new_balance,
+            success=True,
+            product_id=int(product_id),
+            quantity_change=qty_change
+        )
     except Exception:
         conn.rollback()
         raise
@@ -913,9 +1057,74 @@ get_sales_dataframe = get_all_sales_df
 
 
 def get_all_products(active_only: bool = False, db_path: Optional[Union[str, Path]] = None) -> List[Dict[str, Any]]:
-    """Retrieve all products as a list of dictionaries."""
+    """Retrieve all products as a list of dictionaries with canonical and alias keys.
+
+    Every returned dictionary is guaranteed to provide canonical fields:
+    - product_id (int)
+    - product_name (str)
+    - category_name (str)
+    - unit_price / selling_price (float)
+    - current_stock (int)
+    - reorder_threshold / safety_stock_level (int)
+    - target_stock (int)
+    - stock_status (str: HEALTHY, LOW_STOCK, OUT_OF_STOCK)
+    - is_active (int: 1 or 0)
+    - product_sku (str)
+    - created_at (str)
+
+    Plus display title-cased keys for backward compatibility:
+    - Product ID, Product Name, Category, Unit Price (₹), Current Stock, Reorder Threshold, Target Stock, Stock Status, Active, Created At
+    """
     df = get_products_df(active_only=active_only, db_path=db_path)
-    return df.to_dict("records")
+    if df.empty:
+        return []
+
+    records: List[Dict[str, Any]] = []
+    for _, r in df.iterrows():
+        pid = int(r.get("Product ID", r.get("product_id", 0)))
+        pname = str(r.get("Product Name", r.get("product_name", "")))
+        cat = str(r.get("Category", r.get("category_name", "")))
+        price = float(r.get("Unit Price (₹)", r.get("unit_price", r.get("selling_price", 0.0))))
+        stock = int(r.get("Current Stock", r.get("current_stock", 0)))
+        reorder = int(r.get("Reorder Threshold", r.get("reorder_threshold", r.get("safety_stock_level", 20))))
+        target = int(r.get("Target Stock", r.get("target_stock", 100)))
+        status = str(r.get("Stock Status", r.get("stock_status", "HEALTHY")))
+        active = int(r.get("Active", r.get("is_active", 1)))
+        created = str(r.get("Created At", r.get("created_at", "")))
+        sku = f"SKU-{pid:03d}"
+
+        record = {
+            # Canonical snake_case keys
+            "product_id": pid,
+            "product_name": pname,
+            "category_name": cat,
+            "unit_price": price,
+            "selling_price": price,
+            "current_stock": stock,
+            "reorder_threshold": reorder,
+            "safety_stock_level": reorder,
+            "target_stock": target,
+            "stock_status": status,
+            "is_active": active,
+            "created_at": created,
+            "product_sku": sku,
+
+            # Display Title Case keys
+            "Product ID": pid,
+            "Product Name": pname,
+            "Category": cat,
+            "Unit Price (₹)": price,
+            "Current Stock": stock,
+            "Reorder Threshold": reorder,
+            "Target Stock": target,
+            "Stock Status": status,
+            "Active": active,
+            "Created At": created,
+            "SKU": sku,
+        }
+        records.append(record)
+
+    return records
 
 
 def deactivate_product(product_id: int, db_path: Optional[Union[str, Path]] = None) -> bool:
@@ -937,9 +1146,34 @@ def get_all_categories(db_path: Optional[Union[str, Path]] = None) -> List[Dict[
 
 
 def get_inventory_movements(product_id: Optional[int] = None, limit: int = 50, db_path: Optional[Union[str, Path]] = None) -> List[Dict[str, Any]]:
-    """Retrieve recent stock movements as a list of dictionaries."""
+    """Retrieve recent stock movements as a list of dictionaries with canonical keys."""
     df = get_inventory_movements_df(product_id=product_id, limit=limit, db_path=db_path)
-    return df.to_dict("records")
+    if df.empty:
+        return []
+    records: List[Dict[str, Any]] = []
+    for _, r in df.iterrows():
+        rec = {
+            "movement_id": r.get("Movement ID"),
+            "Movement ID": r.get("Movement ID"),
+            "movement_date": r.get("Date"),
+            "Date": r.get("Date"),
+            "product_name": r.get("Product"),
+            "Product": r.get("Product"),
+            "category_name": r.get("Category"),
+            "Category": r.get("Category"),
+            "movement_type": r.get("Action"),
+            "Action": r.get("Action"),
+            "quantity_change": r.get("Change"),
+            "Change": r.get("Change"),
+            "balance_after": r.get("Balance After"),
+            "Balance After": r.get("Balance After"),
+            "reference_note": r.get("Notes"),
+            "Notes": r.get("Notes"),
+            "created_at": r.get("Timestamp"),
+            "Timestamp": r.get("Timestamp"),
+        }
+        records.append(rec)
+    return records
 
 
 def log_anomalies_to_db(anomalies: List[Dict[str, Any]], db_path: Optional[Union[str, Path]] = None) -> int:

@@ -25,6 +25,7 @@ from src.database import (
     init_database,
     seed_database_if_empty,
     get_products_df,
+    get_all_products,
     create_product,
     record_stock_movement
 )
@@ -314,6 +315,40 @@ class TestInventoryIntelligence(unittest.TestCase):
         self.assertIsInstance(intel_from_db, pd.DataFrame)
         self.assertTrue(intel_from_db.empty)
         self.assertIn("product_name", intel_from_db.columns)
+
+    def test_stock_receipt_intelligence_integration(self):
+        """Regression test: stock receipt integrates with inventory intelligence calculation and updates metrics."""
+        pid = create_product(
+            name="Organic Green Tea Bags",
+            category="Beverages",
+            selling_price=150.0,
+            safety_stock=20,
+            target_stock=100,
+            initial_stock=15,  # Low stock below threshold 20
+            db_path=self.db_path
+        )
+
+        # Baseline intelligence before receipt
+        intel_before = calculate_inventory_intelligence(db_path=self.db_path)
+        tea_before = intel_before[intel_before["product_name"] == "Organic Green Tea Bags"].iloc[0]
+        self.assertEqual(int(tea_before["current_stock"]), 15)
+        self.assertEqual(tea_before["health_status"], "Low Stock")
+
+        # Execute stock receipt shipment (+50 units)
+        res = record_stock_movement(
+            product_id=pid,
+            movement_type="RECEIPT",
+            quantity_change=50,
+            reference_note="Supplier shipment receipt",
+            db_path=self.db_path
+        )
+        self.assertEqual(res["new_stock_level"], 65)
+
+        # Re-calculate inventory intelligence
+        intel_after = calculate_inventory_intelligence(db_path=self.db_path)
+        tea_after = intel_after[intel_after["product_name"] == "Organic Green Tea Bags"].iloc[0]
+        self.assertEqual(int(tea_after["current_stock"]), 65)
+        self.assertEqual(tea_after["health_status"], "Healthy")
 
 
 if __name__ == "__main__":
