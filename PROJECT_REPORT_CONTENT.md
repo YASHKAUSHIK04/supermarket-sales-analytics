@@ -1,11 +1,11 @@
-# SUPERMARKET SALES & CUSTOMER ANALYTICS DASHBOARD
+# SUPERMARKET SALES & RETAIL INTELLIGENCE DASHBOARD
 ## Formal Internship Project Report
 
-**Project Title:** Supermarket Sales & Customer Analytics Dashboard  
-**Academic / Professional Level:** Data Analyst Internship Project  
-**Author:** Data Analyst Intern  
+**Project Title:** Supermarket Sales & Retail Intelligence Dashboard  
+**Academic / Professional Level:** Data Analyst Internship Project / BCA Capstone  
+**Author:** Yash Kaushik  
 **Dataset Reference:** Supermarket Sales Dataset (500 Transactions)  
-**Tools & Technologies:** Python, Pandas, NumPy, Plotly, Streamlit, Jupyter  
+**Tools & Technologies:** Python 3.12, Streamlit, SQLite3, ReportLab, openpyxl, Pandas, NumPy, Plotly  
 
 ---
 
@@ -41,14 +41,14 @@
 ================================================================================
                     INTERNSHIP PROJECT REPORT
                                 ON
-       SUPERMARKET SALES & CUSTOMER ANALYTICS DASHBOARD
+        SUPERMARKET SALES & RETAIL INTELLIGENCE DASHBOARD
 
           Submitted in partial fulfillment of the requirements 
                      for the completion of the
                  DATA ANALYST INTERNSHIP PROGRAM
 
 Submitted By:
-[Intern Name Placeholder]
+Yash Kaushik
 [Intern ID / Roll No Placeholder]
 [Department of Computer Science / Data Science]
 
@@ -67,8 +67,8 @@ Under the Supervision & Guidance of:
 ```
                             CERTIFICATE OF COMPLETION
 
-This is to certify that the project entitled "Supermarket Sales & Customer Analytics 
-Dashboard" submitted by [Intern Name Placeholder] (ID: [Intern ID Placeholder]) in partial 
+This is to certify that the project entitled "Supermarket Sales & Retail Intelligence 
+Dashboard" submitted by Yash Kaushik (ID: [Intern ID Placeholder]) in partial 
 fulfillment of the Data Analyst Internship Program is a bona fide record of work carried out 
 under my supervision and guidance.
 
@@ -89,8 +89,8 @@ Date: [DD/MM/YYYY]                           Date: [DD/MM/YYYY]
 ```
                               CANDIDATE DECLARATION
 
-I, [Intern Name Placeholder], hereby declare that the project report entitled "Supermarket Sales 
-& Customer Analytics Dashboard" is an original work conducted by me under the guidance of 
+I, Yash Kaushik, hereby declare that the project report entitled "Supermarket Sales 
+& Retail Intelligence Dashboard" is an original work conducted by me under the guidance of 
 [Mentor Name Placeholder].
 
 I confirm that:
@@ -103,7 +103,7 @@ I confirm that:
 
 ________________________
 [Intern Signature]
-Name: [Intern Name Placeholder]
+Name: Yash Kaushik
 Date: [DD/MM/YYYY]
 ```
 
@@ -153,7 +153,7 @@ A retail chain operating four branches across India (Jaipur, Delhi, Mumbai, Beng
 1. **Data Ingestion & Cleaning**: Ingest raw OCR transaction records, resolve multi-line token wrapping, enforce strict data validation, verify mathematical consistency ($Sales = Quantity \times Unit Price$), and export clean, audit-compliant datasets.
 2. **Feature Engineering**: Derive temporal and unit-level attributes (Year, Month, Month Name, Day, Day of Week, Transaction Value, Unit verification).
 3. **Exploratory Data Analysis**: Comprehensively analyze the dataset across Sales, Customers, Products, Payment Methods, and Customer Ratings.
-4. **Interactive Dashboard Development**: Construct a responsive, modern web dashboard in Streamlit and Plotly featuring 7 KPI cards, comprehensive multi-select filters, filter reset capability, and 7 analytical tabs.
+4. **Full-Stack Dashboard Architecture**: Construct a responsive, modern web application in Streamlit and Plotly backed by a persistent SQLite relational database, double-entry inventory ledger, dual-layer anomaly detection, executive PDF/Excel reporting, and 11 focused analytical tabs.
 5. **Business Insights Formulation**: Derive verified, data-backed operational recommendations without fabricating unobserved business metrics or claiming unproven causal links.
 
 ---
@@ -208,10 +208,14 @@ Key Characteristics:
 | Tool / Technology | Version | Purpose in Project |
 | :--- | :--- | :--- |
 | **Python** | 3.12.10 (x64) | Core programming language environment |
+| **Streamlit** | 1.42.0 | Full-stack interactive analytics web application framework |
+| **SQLite3** | Built-in | Persistent relational backend, foreign keys, double-entry inventory ledger |
+| **ReportLab** | 4.4.10 | Multi-page executive PDF briefing generation with dynamic NumberedCanvas |
+| **openpyxl** | 3.1.5 | Formatted 7-sheet Excel audit workbook generation with currency styling |
+| **unittest** | Built-in | Automated regression test suite (80 unit tests across 6 test suites) |
 | **Pandas** | 3.0.5 | Data wrangling, regex extraction, aggregations, cross-tabulations |
 | **NumPy** | 2.5.3 | Vectorized numerical operations and statistical validations |
 | **Plotly Express / Graph Objects** | 5.24.1 | Production-grade responsive, interactive charts with custom hover templates |
-| **Streamlit** | 1.42.0 | Full-stack interactive analytics web application framework |
 | **Jupyter Notebook (`nbformat`)** | 5.11.1 | Exploratory data analysis documentation and step-by-step code verification |
 | **Regular Expressions (`re`)** | Built-in | Multi-line OCR string reconstruction and pattern parsing |
 
@@ -322,7 +326,18 @@ The interactive dashboard was built using Streamlit in `app.py`:
   - Payment Method (UPI, Net Banking, Card, Cash)
   - One-click **Reset All Filters** button
 - **Defensive Engineering**: Empty-state guard prevents application exceptions when active filters match zero records.
-- **Tabbed Structure**: Seven dedicated functional tabs for focused analysis without overwhelming visual clutter.
+- **Tabbed Structure**: Eleven dedicated functional tabs for comprehensive retail intelligence:
+  1. `📈 Sales Overview`: Temporal trend analyses, weekday-weekend patterns, and sales summaries.
+  2. `🛍️ Product Analysis`: Top 10 revenue/volume charts, quadrant matrix, and category breakdowns.
+  3. `👥 Customer Analysis`: Member vs Normal spending behaviors, gender demographics, and basket dynamics.
+  4. `💳 Payment Analytics`: Settlement channel adoptions, revenue shares, and ticket-size cross-tabs.
+  5. `⭐ Ratings & Feedback`: Satisfaction distributions, rating drivers, and category service scores.
+  6. `💡 Business Insights`: Structured 4-tier prescriptive insights matrix.
+  7. `📦 Inventory Intelligence`: Stock health badges, velocity tiers, safety stock levels, and replenishment calculations.
+  8. `🚨 Anomaly Detection`: Dual-layer deterministic and statistical outlier detection logs.
+  9. `📄 Report Center`: Audit-logged executive PDF briefings, 7-sheet Excel workbooks, and CSV data downloads.
+  10. `🗄️ Database & CRUD`: Master catalog management, stock movement ledger, and live table viewers.
+  11. `📋 Data Explorer`: Interactive tabular search, column filtering, and raw record inspection.
 
 ---
 
@@ -424,6 +439,20 @@ The system calculates daily sales velocity ($V = \frac{\sum Q}{\text{Days}}$) an
 ### 18.4 Executive Reporting Engine
 Using ReportLab's flowable architecture and a dynamic two-pass `NumberedCanvas`, the system produces formatted executive PDF briefings with dynamic page budgeting. Additionally, `openpyxl` compiles comprehensive 7-sheet formatted Excel workbooks containing executive summaries, filtered transactions, SKU performance, category metrics, inventory intelligence, anomaly audit trails, and structured 4-tier business insights.
 
+### 18.5 Automated Test Suite & Code Verification
+The system enforces automated regression testing via Python's built-in `unittest` runner. A total of **80 unit tests** across 6 dedicated test suites validate data engineering, persistence, inventory math, anomaly bounds, 4-tier insights, and report exports:
+- `tests/test_database.py` (13 tests): Relational schema DDL, foreign key enforcement, baseline seeding, idempotent imports (`skip_duplicates` / `replace_all`), product CRUD, stock movement ledger, anomaly and report logging, stock movement result compatibility.
+- `tests/test_inventory.py` (17 tests): Sales velocity, days remaining, safety stock health badges, reorder calculations, ledger overdraft protection, stock deduction shortfall safety, stock receipt intelligence integration, plus regression tests for zero-argument calls, empty products, and unmatched catalog datasets.
+- `tests/test_anomaly.py` (9 tests): Math mismatch detection, negative value traps, rating bounds, duplicate invoices, Tukey's IQR rule, temporal spikes, small dataset safety.
+- `tests/test_insights.py` (10 tests): 4-tier structure integrity, branch disparity insights, category volume dynamics, customer loyalty segment ATV comparison, payment method channel adoption, satisfaction driver variance, critical replenishment urgency integration, defensive handling for custom customer types, single-city datasets, and empty DataFrame safety.
+- `tests/test_reports.py` (17 tests): PDF generation, binary `%PDF` verification, 7-sheet Excel workbook structure, column width auto-adjustment, CSV export, safe report-download audit logging, strict report-type alias normalization and rejection, non-interference with inventory ledger or product quantities.
+- `tests/test_upload_and_analysis.py` (14 tests): CSV/Excel ingestion, alias auto-mapping, KPI calculations, Plotly dark-theme styling, category ratings theming, donut chart Cartesian axis suppression, empty dataset handling.
+
+All tests are executable via:
+```powershell
+py -3.12 -m unittest discover -s tests -p "test_*.py" -v
+```
+
 ---
 
 ## 19. Limitations of Study
@@ -444,7 +473,7 @@ Using ReportLab's flowable architecture and a dynamic two-pass `NumberedCanvas`,
 
 ## 21. Conclusion
 
-The **Supermarket Sales & Customer Analytics Dashboard** project successfully demonstrates practical, portfolio-grade Data Analyst competencies. Through rigorous data parsing, 100% mathematical integrity validation, modular Python engineering, and an intuitive Streamlit dashboard, raw supermarket records were transformed into actionable business intelligence. The resulting solution equips retail managers with the empirical tools necessary to make data-driven decisions on inventory, loyalty incentives, and operational execution.
+The **Supermarket Sales & Retail Intelligence Dashboard** project successfully demonstrates practical, portfolio-grade Data Analyst competencies. Through rigorous data parsing, 100% mathematical integrity validation, modular Python engineering, and an intuitive Streamlit dashboard, raw supermarket records were transformed into actionable business intelligence. The resulting solution equips retail managers with the empirical tools necessary to make data-driven decisions on inventory, loyalty incentives, and operational execution.
 
 ---
 

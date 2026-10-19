@@ -328,10 +328,10 @@ def generate_pdf_report(
     # 3. Executive KPI Cards Table
     kpi_cells = [
         [
-            [Paragraph("TOTAL REVENUE", kpi_title_style), Paragraph(f"${total_sales:,.2f}", kpi_num_style), Paragraph("Gross turnover", kpi_sub_style)],
+            [Paragraph("TOTAL REVENUE", kpi_title_style), Paragraph(f"Rs. {total_sales:,.2f}", kpi_num_style), Paragraph("Gross turnover", kpi_sub_style)],
             [Paragraph("TOTAL VOLUME", kpi_title_style), Paragraph(f"{total_qty:,}", kpi_num_style), Paragraph("Units sold", kpi_sub_style)],
             [Paragraph("TRANSACTIONS", kpi_title_style), Paragraph(f"{total_txns:,}", kpi_num_style), Paragraph("Invoices analyzed", kpi_sub_style)],
-            [Paragraph("AVG ORDER VALUE", kpi_title_style), Paragraph(f"${avg_order_val:,.2f}", kpi_num_style), Paragraph("Per transaction", kpi_sub_style)],
+            [Paragraph("AVG ORDER VALUE", kpi_title_style), Paragraph(f"Rs. {avg_order_val:,.2f}", kpi_num_style), Paragraph("Per transaction", kpi_sub_style)],
             [Paragraph("AVG RATING", kpi_title_style), Paragraph(f"{avg_rating:.2f} / 5.0", kpi_num_style), Paragraph("Customer satisfaction", kpi_sub_style)],
         ]
     ]
@@ -429,7 +429,7 @@ def generate_pdf_report(
                 Paragraph(f"{float(row.get('days_of_stock_remaining', 0)):.1f} d", cell_style),
                 Paragraph(f"<font color='{health_color}'><b>{row.get('health_status', 'Healthy')}</b></font>", cell_style),
                 Paragraph(str(int(row.get("recommended_reorder_qty", 0))), cell_style),
-                Paragraph(f"${float(row.get('estimated_reorder_cost', 0)):,.2f}", cell_style),
+                Paragraph(f"Rs. {float(row.get('estimated_reorder_cost', 0)):,.2f}", cell_style),
             ])
 
         inv_table = Table(inv_rows, colWidths=[100, 95, 42, 55, 52, 68, 55, 65])
@@ -541,7 +541,7 @@ def generate_pdf_report(
             share_pct = (row["Total_Sales"] / total_cat_sales * 100) if total_cat_sales > 0 else 0.0
             cat_rows.append([
                 Paragraph(str(row["Product Category"]), cell_style_bold),
-                Paragraph(f"${row['Total_Sales']:,.2f}", cell_style),
+                Paragraph(f"Rs. {row['Total_Sales']:,.2f}", cell_style),
                 Paragraph(f"{int(row['Units_Sold']):,}", cell_style),
                 Paragraph(f"{int(row['Txn_Count']):,}", cell_style),
                 Paragraph(f"{share_pct:.1f}%", cell_style),
@@ -657,10 +657,10 @@ def generate_excel_workbook(
     avg_rating = float(df["Rating"].mean()) if not df.empty and "Rating" in df.columns else 0.0
 
     kpis = [
-        ("Total Sales Revenue", total_sales, "$#,##0.00"),
+        ("Total Sales Revenue", total_sales, "₹#,##0.00"),
         ("Total Units Sold", total_qty, "#,##0"),
         ("Total Transactions", total_txns, "#,##0"),
-        ("Average Order Value", avg_order_val, "$#,##0.00"),
+        ("Average Order Value", avg_order_val, "₹#,##0.00"),
         ("Average Rating", avg_rating, "0.00"),
     ]
 
@@ -713,7 +713,7 @@ def generate_excel_workbook(
                     cell.alignment = align_center
                 elif col_name in ["Sales", "Unit Price", "Total"] and pd.notna(value):
                     cell.value = float(value)
-                    cell.number_format = "$#,##0.00"
+                    cell.number_format = "₹#,##0.00"
                     cell.alignment = align_right
                 elif col_name in ["Quantity"] and pd.notna(value):
                     cell.value = int(value)
@@ -772,11 +772,11 @@ def generate_excel_workbook(
             c3.alignment = align_right
 
             c4 = ws_prod.cell(row=r_idx, column=4, value=float(row.Total_Sales))
-            c4.number_format = "$#,##0.00"
+            c4.number_format = "₹#,##0.00"
             c4.alignment = align_right
 
             c5 = ws_prod.cell(row=r_idx, column=5, value=float(row.Avg_Price))
-            c5.number_format = "$#,##0.00"
+            c5.number_format = "₹#,##0.00"
             c5.alignment = align_right
 
             c6 = ws_prod.cell(row=r_idx, column=6, value=float(row.Avg_Rating))
@@ -832,7 +832,7 @@ def generate_excel_workbook(
             c2.alignment = align_right
 
             c3 = ws_cat.cell(row=r_idx, column=3, value=float(row.Total_Sales))
-            c3.number_format = "$#,##0.00"
+            c3.number_format = "₹#,##0.00"
             c3.alignment = align_right
 
             c4 = ws_cat.cell(row=r_idx, column=4, value=float(share_val))
@@ -909,7 +909,7 @@ def generate_excel_workbook(
             c10.alignment = align_right
 
             c11 = ws_inv.cell(row=r_idx, column=11, value=float(getattr(row, "estimated_reorder_cost", 0.0)))
-            c11.number_format = "$#,##0.00"
+            c11.number_format = "₹#,##0.00"
             c11.alignment = align_right
 
             for c in range(1, 12):

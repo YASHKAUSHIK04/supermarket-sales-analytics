@@ -669,7 +669,7 @@ st.markdown(f"""
 <div class="kpi-grid">
     <div class="metric-card">
         <div class="metric-title" title="Total Sales">Total Sales</div>
-        <div class="metric-value" title="${kpis['total_sales']:,.2f}">${kpis['total_sales']:,.0f}</div>
+        <div class="metric-value" title="₹{kpis['total_sales']:,.2f}">₹{kpis['total_sales']:,.0f}</div>
         <div class="metric-subtitle" title="Gross Revenue">Gross Revenue</div>
     </div>
     <div class="metric-card">
@@ -684,7 +684,7 @@ st.markdown(f"""
     </div>
     <div class="metric-card">
         <div class="metric-title" title="Avg Order Value">Avg Order Value</div>
-        <div class="metric-value" title="${kpis['avg_transaction_value']:,.2f}">${kpis['avg_transaction_value']:,.1f}</div>
+        <div class="metric-value" title="₹{kpis['avg_transaction_value']:,.2f}">₹{kpis['avg_transaction_value']:,.1f}</div>
         <div class="metric-subtitle" title="Per Transaction">Per Transaction</div>
     </div>
     <div class="metric-card">
@@ -795,7 +795,7 @@ with tabs[1]:
             x_col="Total_Sales",
             y_col="Product",
             orientation="h",
-            title="Top 10 Products by Revenue ($)",
+            title="Top 10 Products by Revenue (₹)",
             color_col="Category",
             show_legend=True
         )
@@ -824,14 +824,14 @@ with tabs[1]:
     st.markdown("#### Category Summary Breakdown")
     st.dataframe(
         prod_perf["category_summary"].rename(columns={
-            "Total_Sales": "Total Sales ($)",
+            "Total_Sales": "Total Sales (₹)",
             "Total_Quantity": "Total Units",
-            "Avg_Unit_Price": "Avg Unit Price ($)",
+            "Avg_Unit_Price": "Avg Unit Price (₹)",
             "Avg_Rating": "Avg Rating"
         }).style.format({
-            "Total Sales ($)": "${:,.2f}",
+            "Total Sales (₹)": "₹{:,.2f}",
             "Total Units": "{:,}",
-            "Avg Unit Price ($)": "${:.2f}",
+            "Avg Unit Price (₹)": "₹{:.2f}",
             "Avg Rating": "{:.2f}"
         }),
         use_container_width=True,
@@ -1151,7 +1151,7 @@ with tabs[6]:
             </div>
             <div class="metric-card">
                 <div class="metric-title">Inventory Valuation</div>
-                <div class="metric-value">${inv_kpis['total_stock_value']:,.2f}</div>
+                <div class="metric-value">₹{inv_kpis['total_stock_value']:,.2f}</div>
                 <div class="metric-subtitle">Holding Value</div>
             </div>
             <div class="metric-card" style="border-left: 3px solid #dc2626;">
@@ -1166,7 +1166,7 @@ with tabs[6]:
             </div>
             <div class="metric-card">
                 <div class="metric-title">Est. Reorder Cost</div>
-                <div class="metric-value">${inv_kpis['total_reorder_cost']:,.2f}</div>
+                <div class="metric-value">₹{inv_kpis['total_reorder_cost']:,.2f}</div>
                 <div class="metric-subtitle">Replenishment Budget</div>
             </div>
         </div>
@@ -1209,14 +1209,14 @@ with tabs[6]:
                 "velocity_tier": "Velocity Tier",
                 "health_status": "Health Status",
                 "recommended_reorder_qty": "Reorder Qty",
-                "estimated_reorder_cost": "Est Reorder Cost ($)",
+                "estimated_reorder_cost": "Est Reorder Cost (₹)",
             }).style.format({
                 "Current Stock": "{:,}",
                 "Safety Stock": "{:,}",
                 "Daily Velocity (Units/d)": "{:.2f}",
                 "Days Remaining": "{:.1f}",
                 "Reorder Qty": "{:,}",
-                "Est Reorder Cost ($)": "${:,.2f}"
+                "Est Reorder Cost (₹)": "₹{:,.2f}"
             }),
             use_container_width=True,
             hide_index=True
@@ -1587,8 +1587,8 @@ with tabs[9]:
                 cats = get_all_categories()
                 cat_choices = {c["category_name"]: c["category_id"] for c in cats} if cats else {"General": 1}
                 sel_cat_name = st.selectbox("Category:", list(cat_choices.keys()), key="add_cat")
-                new_cost = st.number_input("Unit Cost ($):", min_value=0.01, value=5.0, step=0.5, key="add_cost")
-                new_price = st.number_input("Selling Price ($):", min_value=0.01, value=9.5, step=0.5, key="add_price")
+                new_cost = st.number_input("Unit Cost (₹):", min_value=0.01, value=5.0, step=0.5, key="add_cost")
+                new_price = st.number_input("Selling Price (₹):", min_value=0.01, value=9.5, step=0.5, key="add_price")
                 new_safety = st.number_input("Safety Stock Level:", min_value=1, value=20, key="add_safety")
                 new_stock = st.number_input("Initial Warehouse Stock:", min_value=0, value=60, key="add_stock")
 
@@ -1620,7 +1620,7 @@ with tabs[9]:
                         )
                         target = prod_map[sel_pid]
 
-                        upd_price = st.number_input("New Selling Price ($):", min_value=0.01, value=float(target.get("unit_price", 10.0)), key="upd_price")
+                        upd_price = st.number_input("New Selling Price (₹):", min_value=0.01, value=float(target.get("unit_price", 10.0)), key="upd_price")
                         upd_safety = st.number_input("New Safety Stock:", min_value=1, value=int(target.get("reorder_threshold", target.get("safety_stock_level", 20))), key="upd_safety")
                         upd_active = st.checkbox("Active Status", value=bool(target.get("is_active", 1)), key="upd_active")
 

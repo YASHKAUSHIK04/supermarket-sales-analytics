@@ -1,11 +1,12 @@
-# Supermarket Sales & Retail Intelligence System
+# Supermarket Sales & Retail Intelligence Dashboard
 
 ![Project Status](https://img.shields.io/badge/Status-Upgraded%20%26%20Production--Ready-success)
 ![Python Version](https://img.shields.io/badge/Python-3.12%2B-blue)
 ![Backend](https://img.shields.io/badge/Backend-SQLite3%20Relational%20DB-lightgrey)
 ![Framework](https://img.shields.io/badge/Framework-Streamlit-red)
 ![Reporting](https://img.shields.io/badge/Reporting-ReportLab%20%7C%20openpyxl-orange)
-![Tests](https://img.shields.io/badge/Unit%20Tests-52%20Passed-brightgreen)
+![Tests](https://img.shields.io/badge/Unit%20Tests-80%20Passed-brightgreen)
+![Currency](https://img.shields.io/badge/Currency-INR%20(%E2%82%B9)-blue)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 
 **Project Owner**: [Yash Kaushik](https://github.com/YASHKAUSHIK04)  
@@ -16,7 +17,7 @@
 
 ## 📌 Executive Overview
 
-The **Supermarket Sales & Retail Intelligence System** is an enterprise-grade, full-stack business intelligence and data engineering application. Built with Python 3.12, Streamlit, and a persistent SQLite relational database, the system transforms raw supermarket point-of-sale (POS) data into real-time operational insights, inventory stock monitoring, automated data-quality anomaly auditing, and publication-ready executive PDF and Excel reports.
+The **Supermarket Sales & Retail Intelligence Dashboard** is an enterprise-grade, full-stack business intelligence and data engineering application. Built with Python 3.12, Streamlit, and a persistent SQLite relational database, the system transforms raw supermarket point-of-sale (POS) data into real-time operational insights, inventory stock monitoring, automated data-quality anomaly auditing, and publication-ready executive PDF and Excel reports. All monetary values are standardized in Indian Rupees (INR / ₹ / Rs.).
 
 Unlike static dashboards, this system provides:
 1. **Persistent Relational Database Backend**: Built-in `sqlite3` relational schema with foreign key constraints, indexes, transaction ACID semantics, and non-destructive CSV/Excel ingestion.
@@ -218,7 +219,7 @@ Rather than generating generic AI commentary, the system generates empirical, ve
 
 | Tier | Component | Definition | Example from Supermarket System |
 | :---: | :--- | :--- | :--- |
-| **Tier 1** | **👁️ Observation** | Objective, verifiable mathematical statement directly extracted from filtered data. | *"Branch C accounts for \$72,469.45 (29.7% of total sales), outperforming Branch A by \$20,112.37 (38.4% higher)."* |
+| **Tier 1** | **👁️ Observation** | Objective, verifiable mathematical statement directly extracted from filtered data. | *"Branch C accounts for ₹72,469.45 (29.7% of total sales), outperforming Branch A by ₹20,112.37 (38.4% higher)."* |
 | **Tier 2** | **📊 Analytical Insight** | Business implication and context derived from the observation. | *"Regional revenue generation is heavily concentrated in Branch C, indicating strong market penetration but high revenue reliance on a single outlet."* |
 | **Tier 3** | **❓ Possible Explanation** | Plausible operational, demographic, or foot-traffic hypotheses. | *"Branch C may enjoy higher foot traffic, an optimal downtown retail location, or superior category merchandising."* |
 | **Tier 4** | **🎯 Recommended Action** | Specific, measurable, and actionable directive for retail store managers. | *"Audit Branch C's promotional strategy and inventory mix to identify transferable best practices for Branch A and B."* |
@@ -246,19 +247,19 @@ Generates a structured 7-sheet workbook:
 
 ## 🧪 Automated Test Suite
 
-The project includes **52 comprehensive automated unit tests** covering all modules:
+The project includes **80 comprehensive automated unit tests** across 6 test suites covering all modules:
 
 ```powershell
 py -3.12 -m unittest discover -s tests -p "test_*.py" -v
 ```
 
 ### Test Suite Breakdown:
-- `tests/test_database.py` (8 tests): Schema DDL, foreign key enforcement, baseline seeding, idempotent imports (`skip_duplicates` / `replace_all`), product CRUD, stock movement ledger, anomaly and report logging.
-- `tests/test_inventory.py` (11 tests): Sales velocity, days remaining, safety stock health badges, reorder calculations, ledger overdraft protection, plus regression tests for missing arguments, empty products, and unmatched catalog datasets.
+- `tests/test_database.py` (13 tests): Schema DDL, foreign key enforcement, baseline seeding, idempotent imports (`skip_duplicates` / `replace_all`), product CRUD, stock movement ledger, anomaly and report logging, stock movement result compatibility.
+- `tests/test_inventory.py` (17 tests): Sales velocity, days remaining, safety stock health badges, reorder calculations, ledger overdraft protection, stock deduction shortfall safety, stock receipt intelligence integration, plus regression tests for zero-argument calls, empty products, and unmatched catalog datasets.
 - `tests/test_anomaly.py` (9 tests): Math mismatch detection, negative value traps, rating bounds, duplicate invoices, Tukey's IQR rule, temporal spikes, small dataset safety.
-- `tests/test_insights.py` (5 tests): 4-tier structure integrity, branch disparity insights, category volume dynamics, inventory urgency integration, empty DataFrame safety.
-- `tests/test_reports.py` (5 tests): PDF generation, binary `%PDF` verification, 7-sheet Excel workbook structure, column width auto-adjustment, CSV export.
-- `tests/test_upload_and_analysis.py` (14 tests): CSV/Excel ingestion, alias auto-mapping, KPI calculations, Plotly dark-theme styling, empty dataset handling.
+- `tests/test_insights.py` (10 tests): 4-tier structure integrity, branch disparity insights, category volume dynamics, customer loyalty segment ATV comparison, payment method channel adoption, satisfaction driver variance, critical replenishment urgency integration, defensive handling for custom customer types, single-city datasets, and empty DataFrame safety.
+- `tests/test_reports.py` (17 tests): PDF generation, binary `%PDF` verification, 7-sheet Excel workbook structure, column width auto-adjustment, CSV export, safe report-download audit logging, strict report-type alias normalization and rejection, non-interference with inventory ledger or product quantities.
+- `tests/test_upload_and_analysis.py` (14 tests): CSV/Excel ingestion, alias auto-mapping, KPI calculations, Plotly dark-theme styling, category ratings theming, donut chart Cartesian axis suppression, empty dataset handling.
 
 ---
 
