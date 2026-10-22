@@ -1,6 +1,6 @@
 """
-Supermarket Sales & Retail Intelligence System
-================================================
+Supermarket Sales & Retail Intelligence Dashboard
+=================================================
 Full-Stack Retail Analytics, Relational Database Backend, Inventory Intelligence,
 Automated Anomaly Detection, 4-Tier Business Insights, and Executive Report Engine.
 
@@ -100,7 +100,7 @@ from src.reports import (
 
 # Page configuration
 st.set_page_config(
-    page_title="Supermarket Sales & Retail Intelligence",
+    page_title="Supermarket Sales & Retail Intelligence Dashboard",
     page_icon="🛒",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -394,7 +394,7 @@ else:
             st.stop()
     else:
         # Prompt user to upload file
-        st.title("🛒 Supermarket Sales & Retail Intelligence")
+        st.title("🛒 Supermarket Sales & Retail Intelligence Dashboard")
         st.info("👋 **Welcome!** Please upload a CSV or Excel (`.xlsx`, `.xls`) file in the sidebar to begin analysis, or switch to **'SQLite Database (Persistent)'**.")
         
         st.markdown("### 📋 Expected Data Format")
@@ -617,7 +617,7 @@ active_filter_summary = {
 # -------------------------------------------------------------
 # HEADER & EXECUTIVE SUMMARY
 # -------------------------------------------------------------
-st.title("🛒 Supermarket Sales & Retail Intelligence System")
+st.title("🛒 Supermarket Sales & Retail Intelligence Dashboard")
 
 # Active dataset indicator badge
 st.markdown(

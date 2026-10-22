@@ -322,6 +322,38 @@ class TestSupermarketAnalytics(unittest.TestCase):
         self.assertEqual(fig_themed.layout.title.font.color, "#f8fafc")
         self.assertTrue(fig_themed.layout.coloraxis.showscale)
 
+    def test_visualization_inr_currency_formatting(self):
+        """Verify visualization hover templates and axis labels format with INR (₹) instead of USD ($)."""
+        trend_df = pd.DataFrame({
+            "Period": ["2026-01", "2026-02"],
+            "Sales": [12000.50, 18500.75],
+            "Transactions": [25, 38]
+        })
+        fig_trend = plot_sales_trend(trend_df)
+        self.assertIn("₹", fig_trend.data[0].hovertemplate)
+        self.assertNotIn("$", fig_trend.data[0].hovertemplate)
+        self.assertIn("₹", fig_trend.layout.yaxis.title.text)
+
+        bar_df = pd.DataFrame({
+            "Product": ["Coffee", "Tea"],
+            "Sales": [8500.0, 4200.0],
+            "Category": ["Beverages", "Beverages"]
+        })
+        fig_bar = plot_bar(bar_df, x_col="Sales", y_col="Product", title="Top Products", orientation="h", format_currency=True)
+        self.assertIn("₹", fig_bar.data[0].hovertemplate)
+        self.assertNotIn("$", fig_bar.data[0].hovertemplate)
+
+        quad_df = pd.DataFrame({
+            "Product": ["Cheese"],
+            "Category": ["Dairy"],
+            "Avg_Unit_Price": [120.0],
+            "Total_Quantity": [50],
+            "Total_Sales": [6000.0]
+        })
+        fig_quad = plot_scatter_quadrant(quad_df)
+        self.assertIn("₹", fig_quad.data[0].hovertemplate)
+        self.assertNotIn("$", fig_quad.data[0].hovertemplate)
+
 
 if __name__ == "__main__":
     unittest.main()

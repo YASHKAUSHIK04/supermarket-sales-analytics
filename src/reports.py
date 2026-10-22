@@ -83,7 +83,7 @@ class NumberedCanvas(canvas.Canvas):
             self.setStrokeColor(colors.HexColor("#E2E8F0"))
             self.setLineWidth(0.75)
             self.line(40, 755, 572, 755)
-            self.drawString(40, 760, "Supermarket Sales & Retail Intelligence System — Executive Briefing")
+            self.drawString(40, 760, "Supermarket Sales & Retail Intelligence Dashboard — Executive Briefing")
             self.drawRightString(572, 760, datetime.datetime.now().strftime("%B %d, %Y"))
 
         # Running footer on every page
@@ -266,7 +266,7 @@ def generate_pdf_report(
     story = []
 
     # 1. Document Title & Header Banner
-    story.append(Paragraph("Executive Supermarket Sales & Retail Intelligence Report", title_style))
+    story.append(Paragraph("Supermarket Sales & Retail Intelligence Dashboard — Executive Briefing", title_style))
     story.append(
         Paragraph(
             "Holistic operational review: Financial KPIs, 4-tier prescriptive insights, "
@@ -626,7 +626,7 @@ def generate_excel_workbook(
     ws_sum = wb.create_sheet(title="Executive Summary")
     ws_sum.views.sheetView[0].showGridLines = True
 
-    ws_sum["A1"] = "Supermarket Sales & Retail Intelligence System"
+    ws_sum["A1"] = "Supermarket Sales & Retail Intelligence Dashboard"
     ws_sum["A1"].font = font_title
     ws_sum["A2"] = f"Executive briefing & audit workbook generated on {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     ws_sum["A2"].font = font_subtitle

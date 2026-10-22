@@ -5,7 +5,7 @@
 ![Backend](https://img.shields.io/badge/Backend-SQLite3%20Relational%20DB-lightgrey)
 ![Framework](https://img.shields.io/badge/Framework-Streamlit-red)
 ![Reporting](https://img.shields.io/badge/Reporting-ReportLab%20%7C%20openpyxl-orange)
-![Tests](https://img.shields.io/badge/Unit%20Tests-80%20Passed-brightgreen)
+![Tests](https://img.shields.io/badge/Unit%20Tests-82%20Passed-brightgreen)
 ![Currency](https://img.shields.io/badge/Currency-INR%20(%E2%82%B9)-blue)
 ![License](https://img.shields.io/badge/License-MIT-blue)
 
@@ -195,7 +195,7 @@ The anomaly detection engine safeguards data quality through two distinct comple
 
 ### Layer 1: Deterministic Business Rule Violations
 1. **Arithmetic Calculation Discrepancies**:
-   $$|\text{Sales} - (\text{Quantity} \times \text{Unit Price})| > \$0.05$$
+   $$|\text{Sales} - (\text{Quantity} \times \text{Unit Price})| > 0.05$$
    Flags point-of-sale software bugs or rounding corruptions (`CRITICAL` severity).
 2. **Negative / Zero Values**: Detects quantities $\le 0$ or unit prices $\le 0$ violating physical retail constraints (`CRITICAL` severity).
 3. **Rating Range Violations**: Flags satisfaction scores outside standard $1.0 \le \text{Rating} \le 5.0$ bounds (`MEDIUM` severity).
@@ -247,7 +247,7 @@ Generates a structured 7-sheet workbook:
 
 ## 🧪 Automated Test Suite
 
-The project includes **80 comprehensive automated unit tests** across 6 test suites covering all modules:
+The project includes **82 comprehensive automated unit tests** across 6 test suites covering all modules:
 
 ```powershell
 py -3.12 -m unittest discover -s tests -p "test_*.py" -v
@@ -258,8 +258,8 @@ py -3.12 -m unittest discover -s tests -p "test_*.py" -v
 - `tests/test_inventory.py` (17 tests): Sales velocity, days remaining, safety stock health badges, reorder calculations, ledger overdraft protection, stock deduction shortfall safety, stock receipt intelligence integration, plus regression tests for zero-argument calls, empty products, and unmatched catalog datasets.
 - `tests/test_anomaly.py` (9 tests): Math mismatch detection, negative value traps, rating bounds, duplicate invoices, Tukey's IQR rule, temporal spikes, small dataset safety.
 - `tests/test_insights.py` (10 tests): 4-tier structure integrity, branch disparity insights, category volume dynamics, customer loyalty segment ATV comparison, payment method channel adoption, satisfaction driver variance, critical replenishment urgency integration, defensive handling for custom customer types, single-city datasets, and empty DataFrame safety.
-- `tests/test_reports.py` (17 tests): PDF generation, binary `%PDF` verification, 7-sheet Excel workbook structure, column width auto-adjustment, CSV export, safe report-download audit logging, strict report-type alias normalization and rejection, non-interference with inventory ledger or product quantities.
-- `tests/test_upload_and_analysis.py` (14 tests): CSV/Excel ingestion, alias auto-mapping, KPI calculations, Plotly dark-theme styling, category ratings theming, donut chart Cartesian axis suppression, empty dataset handling.
+- `tests/test_reports.py` (18 tests): PDF generation, binary `%PDF` verification, 7-sheet Excel workbook structure, column width auto-adjustment, CSV export, safe report-download audit logging, strict report-type alias normalization and rejection, non-interference with inventory ledger or product quantities, regression tests for currency formatting (INR / ₹ / Rs.) and CSV numeric machine-readability.
+- `tests/test_upload_and_analysis.py` (15 tests): CSV/Excel ingestion, alias auto-mapping, KPI calculations, Plotly dark-theme styling, category ratings theming, donut chart Cartesian axis suppression, empty dataset handling, regression tests for visualization INR (₹) hover templates and axis labels.
 
 ---
 
@@ -317,7 +317,7 @@ When presenting this project during a college viva examination or technical inte
 > **Answer**: *"Our inventory deduction engine in `src/inventory.py` and `src/database.py` executes a two-phase check. In Phase 1, it queries current stock for each product and verifies whether $\text{Current Stock} \ge \text{Deduction Qty}$. If any product suffers a shortfall, the entire transaction is safely aborted without partial deductions. In Phase 2, the ledger balance is updated atomically using a database transaction with `CHECK(resulting_stock >= 0)` constraint enforcement."*
 
 ### Q3: How does the anomaly detection engine work without paid machine learning APIs?
-> **Answer**: *"We implemented a dual-layer architecture. Layer 1 uses deterministic rules: mathematical consistency verification ($|\text{Sales} - (\text{Quantity} \times \text{Unit Price})| \le \$0.05$), positive number constraints, and bounds checking. Layer 2 uses statistical distribution modeling: Tukey's Interquartile Range ($Q_3 + 1.5 \times IQR$) to identify price and volume outliers, combined with a daily aggregate rolling standard deviation test ($> 2.5\sigma$) to catch abnormal single-day sales spikes. This is deterministic, explainable, lightweight, and requires no external API tokens."*
+> **Answer**: *"We implemented a dual-layer architecture. Layer 1 uses deterministic rules: mathematical consistency verification ($|\text{Sales} - (\text{Quantity} \times \text{Unit Price})| \le 0.05$), positive number constraints, and bounds checking. Layer 2 uses statistical distribution modeling: Tukey's Interquartile Range ($Q_3 + 1.5 \times IQR$) to identify price and volume outliers, combined with a daily aggregate rolling standard deviation test ($> 2.5\sigma$) to catch abnormal single-day sales spikes. This is deterministic, explainable, lightweight, and requires no external API tokens."*
 
 ### Q4: What is the 4-tier business insight framework?
 > **Answer**: *"Many dashboards present isolated charts that leave managers wondering 'what should I do?'. Our 4-tier framework systematically bridges the gap between raw data and executive decision-making:

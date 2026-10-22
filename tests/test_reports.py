@@ -201,8 +201,10 @@ class TestReportingEngine(unittest.TestCase):
 
         # Check Executive Summary content
         ws_sum = wb["Executive Summary"]
-        self.assertEqual(ws_sum["A1"].value, "Supermarket Sales & Retail Intelligence System")
+        self.assertEqual(ws_sum["A1"].value, "Supermarket Sales & Retail Intelligence Dashboard")
         self.assertEqual(ws_sum["B5"].value, 3)  # Total records
+        self.assertEqual(ws_sum["B9"].number_format, "₹#,##0.00")   # Total Sales Revenue format
+        self.assertEqual(ws_sum["B12"].number_format, "₹#,##0.00")  # Average Order Value format
 
         # Check Sales Transactions row count (header + 3 rows = 4)
         ws_tx = wb["Sales Transactions"]
@@ -234,6 +236,59 @@ class TestReportingEngine(unittest.TestCase):
         # Empty df test
         empty_csv = generate_csv_export(pd.DataFrame())
         self.assertEqual(empty_csv, "")
+
+    def test_currency_formatting_in_reports(self):
+        """Regression test: verify report formats standardize to INR (₹ / Rs.) and keep CSV numeric machine-readable."""
+        filter_summary = {"branch": ["A", "B"]}
+
+        # 1. Multi-sheet Excel workbook currency format validation
+        xlsx_buf = generate_excel_workbook(
+            df=self.sample_df,
+            dataset_name="Currency Audit Scope",
+            filter_summary=filter_summary,
+            insights=self.insights,
+            anomalies=self.anomalies,
+            inventory_df=self.inventory_df,
+        )
+        wb = openpyxl.load_workbook(io.BytesIO(xlsx_buf.getvalue()))
+
+        # Check currency number formats in all financial sheets
+        self.assertEqual(wb["Executive Summary"]["B9"].number_format, "₹#,##0.00")
+        self.assertEqual(wb["Executive Summary"]["B12"].number_format, "₹#,##0.00")
+        self.assertEqual(wb["Product Performance"].cell(row=2, column=4).number_format, "₹#,##0.00")
+        self.assertEqual(wb["Product Performance"].cell(row=2, column=5).number_format, "₹#,##0.00")
+        self.assertEqual(wb["Category Performance"].cell(row=2, column=3).number_format, "₹#,##0.00")
+        self.assertEqual(wb["Inventory Intelligence"].cell(row=2, column=11).number_format, "₹#,##0.00")
+
+        # 2. Machine-readable CSV data export verification
+        csv_str = generate_csv_export(self.sample_df)
+        csv_rows = [line.strip().split(",") for line in csv_str.strip().split("\n") if line.strip()]
+        header = csv_rows[0]
+        sales_idx = header.index("Sales")
+        unit_price_idx = header.index("Unit Price")
+
+        for row in csv_rows[1:]:
+            # Ensure raw values do not contain currency symbols
+            self.assertNotIn("₹", row[sales_idx])
+            self.assertNotIn("$", row[sales_idx])
+            self.assertNotIn("₹", row[unit_price_idx])
+            self.assertNotIn("$", row[unit_price_idx])
+            # Ensure values are strictly parseable as numeric floats
+            float(row[sales_idx])
+            float(row[unit_price_idx])
+
+        # 3. PDF generation cross-platform Latin-1 compatibility
+        pdf_buf = generate_pdf_report(
+            df=self.sample_df,
+            dataset_name="Currency Audit Scope",
+            filter_summary=filter_summary,
+            insights=self.insights,
+            anomalies=self.anomalies,
+            inventory_df=self.inventory_df,
+        )
+        pdf_bytes = pdf_buf.getvalue()
+        self.assertTrue(pdf_bytes.startswith(b"%PDF"))
+        self.assertGreater(len(pdf_bytes), 1000)
 
 
 class TestReportDownloadAuditIntegration(unittest.TestCase):

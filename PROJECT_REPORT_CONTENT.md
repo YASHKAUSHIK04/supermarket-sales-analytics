@@ -212,7 +212,7 @@ Key Characteristics:
 | **SQLite3** | Built-in | Persistent relational backend, foreign keys, double-entry inventory ledger |
 | **ReportLab** | 4.4.10 | Multi-page executive PDF briefing generation with dynamic NumberedCanvas |
 | **openpyxl** | 3.1.5 | Formatted 7-sheet Excel audit workbook generation with currency styling |
-| **unittest** | Built-in | Automated regression test suite (80 unit tests across 6 test suites) |
+| **unittest** | Built-in | Automated regression test suite (82 unit tests across 6 test suites) |
 | **Pandas** | 3.0.5 | Data wrangling, regex extraction, aggregations, cross-tabulations |
 | **NumPy** | 2.5.3 | Vectorized numerical operations and statistical validations |
 | **Plotly Express / Graph Objects** | 5.24.1 | Production-grade responsive, interactive charts with custom hover templates |
@@ -440,13 +440,13 @@ The system calculates daily sales velocity ($V = \frac{\sum Q}{\text{Days}}$) an
 Using ReportLab's flowable architecture and a dynamic two-pass `NumberedCanvas`, the system produces formatted executive PDF briefings with dynamic page budgeting. Additionally, `openpyxl` compiles comprehensive 7-sheet formatted Excel workbooks containing executive summaries, filtered transactions, SKU performance, category metrics, inventory intelligence, anomaly audit trails, and structured 4-tier business insights.
 
 ### 18.5 Automated Test Suite & Code Verification
-The system enforces automated regression testing via Python's built-in `unittest` runner. A total of **80 unit tests** across 6 dedicated test suites validate data engineering, persistence, inventory math, anomaly bounds, 4-tier insights, and report exports:
+The system enforces automated regression testing via Python's built-in `unittest` runner. A total of **82 unit tests** across 6 dedicated test suites validate data engineering, persistence, inventory math, anomaly bounds, 4-tier insights, and report exports:
 - `tests/test_database.py` (13 tests): Relational schema DDL, foreign key enforcement, baseline seeding, idempotent imports (`skip_duplicates` / `replace_all`), product CRUD, stock movement ledger, anomaly and report logging, stock movement result compatibility.
 - `tests/test_inventory.py` (17 tests): Sales velocity, days remaining, safety stock health badges, reorder calculations, ledger overdraft protection, stock deduction shortfall safety, stock receipt intelligence integration, plus regression tests for zero-argument calls, empty products, and unmatched catalog datasets.
 - `tests/test_anomaly.py` (9 tests): Math mismatch detection, negative value traps, rating bounds, duplicate invoices, Tukey's IQR rule, temporal spikes, small dataset safety.
 - `tests/test_insights.py` (10 tests): 4-tier structure integrity, branch disparity insights, category volume dynamics, customer loyalty segment ATV comparison, payment method channel adoption, satisfaction driver variance, critical replenishment urgency integration, defensive handling for custom customer types, single-city datasets, and empty DataFrame safety.
-- `tests/test_reports.py` (17 tests): PDF generation, binary `%PDF` verification, 7-sheet Excel workbook structure, column width auto-adjustment, CSV export, safe report-download audit logging, strict report-type alias normalization and rejection, non-interference with inventory ledger or product quantities.
-- `tests/test_upload_and_analysis.py` (14 tests): CSV/Excel ingestion, alias auto-mapping, KPI calculations, Plotly dark-theme styling, category ratings theming, donut chart Cartesian axis suppression, empty dataset handling.
+- `tests/test_reports.py` (18 tests): PDF generation, binary `%PDF` verification, 7-sheet Excel workbook structure, column width auto-adjustment, CSV export, safe report-download audit logging, strict report-type alias normalization and rejection, non-interference with inventory ledger or product quantities, regression tests for currency formatting (INR / ₹ / Rs.) and CSV numeric machine-readability.
+- `tests/test_upload_and_analysis.py` (15 tests): CSV/Excel ingestion, alias auto-mapping, KPI calculations, Plotly dark-theme styling, category ratings theming, donut chart Cartesian axis suppression, empty dataset handling, regression tests for visualization INR (₹) hover templates and axis labels.
 
 All tests are executable via:
 ```powershell
